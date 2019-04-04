@@ -1,0 +1,36 @@
+Copyright Notice
+
+Copyright © 2018 Flexera Software LLC (“Flexera”). All Rights Reserved.
+
+This product contains proprietary and confidential technology, information
+and creative works owned by Flexera and its licensors, if any.  Any use,
+copying, publication, distribution, display, modification, or transmission
+of such technology in whole or in part in any form or by any means without
+the prior express written permission of Flexera is strictly prohibited.
+Except where expressly provided by Flexera in writing, possession of this
+technology shall not be construed to confer any license or rights under any
+Flexera intellectual property rights, whether by estoppel, implication, or
+otherwise. All copies of the technology and related information, if allowed
+by Flexera, must display this notice of copyright and ownership in full.
+
+Intellectual Property
+
+For a list of trademarks and patents that are owned by Flexera, see
+http://www.flexera.com/intellectual-property. All other brand and product
+names mentioned in Flexera products, product documentation, and marketing
+materials are the trademarks and registered trademarks of their respective
+owners.
+
+Restricted Rights Legend
+
+The Software is commercial computer software. If the user or licensee of the
+Software is an agency, department, or other entity of the United States
+Government, the use, duplication, reproduction, release, modification,
+disclosure, or transfer of the Software, or any related documentation of any
+kind, including technical data and manuals, is restricted by a license
+agreement or by the terms of this Agreement in accordance with Federal
+Acquisition Regulation 12.212 for civilian purposes and Defense Federal
+Acquisition Regulation Supplement 227.7202 for military purposes.
+
+The Software was developed fully at private expense. All other use is
+prohibited.
