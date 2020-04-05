@@ -1,5 +1,5 @@
 # This adds codeowners for everything in the repo
-* @dfrankel33 @mlethbridge
+* @flexera/cset 
 
 #This is for a specific folder
-#aws/rs_aws_cft/* @dfrankel33 @mlethbridge
+#aws/rs_aws_cft/* @flexera/cset
