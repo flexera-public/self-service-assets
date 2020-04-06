@@ -112,7 +112,7 @@ define get_arm_template_params() return $params do
   $params = {
     "location": {
       "value": param_location
-    }
+    },
     "siteName": {
         "value": param_site_name
     },
@@ -121,16 +121,16 @@ define get_arm_template_params() return $params do
     },
     "servicePlanPricingTier": {
         "value": param_serviceplan_pricing_tier
-    }
+    },
     "sqlServerAdministratorUsername": {
         "value": param_sqladmin_username
-    }
+    },
     "sqlServerAdministratorPassword": {
       "value": param_sql_password
-    }
+    },
     "sqlDatabaseSkuName": {
       "value": param_sql_sku_name
-    }
+    },
     "sqlDatabaseSkuSizeGB": {
       "value": param_sql_database_size
     } 
