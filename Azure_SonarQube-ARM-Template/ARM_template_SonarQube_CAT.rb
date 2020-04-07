@@ -100,15 +100,7 @@ operation "launch" do
   definition "launch"
 end 
 
-define launch(@my_template) return @my_template do
-  call get_arm_template_params() retrieve $params
-  $object = to_object(@my_template)
-  $object["fields"]["properties"]["parameters"] = $params
-  @my_template = $object
-  provision(@my_template)
-end 
-
-define get_arm_template_params() return $params do
+define launch(@my_template, $param_location, $parram_site_name, $param_sq_image_version, $param_sql_sku_name, $param_sqladmin_username, $param_sql_password, $param_sql_database_size, $param_serviceplan_pricing_tier) return @my_template do
   $params = {
     "location": {
       "value": $param_location
@@ -134,5 +126,9 @@ define get_arm_template_params() return $params do
     "sqlDatabaseSkuSizeGB": {
       "value": $param_sql_database_size
     } 
-}
-end 
+  }
+  $object = to_object(@my_template)
+  $object["fields"]["properties"]["parameters"] = $params
+  @my_template = $object
+  provision(@my_template)
+end
