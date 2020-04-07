@@ -108,8 +108,7 @@ define launch(@my_template) return @my_template do
   provision(@my_template)
 end 
 
-define get_arm_template_params($param_serviceplan_capacity, $param_serviceplan_pricing_tier, $param_sq_image_version, 
-  $param_sql_database_size, $param_sql_password, $param_site_name, $param_sql_sku_name, $param_sqladmin_username) return $params do
+define get_arm_template_params() return $params do
   $params = {
     "location": {
       "value": $param_location
