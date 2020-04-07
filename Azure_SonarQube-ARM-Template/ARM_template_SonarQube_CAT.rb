@@ -100,7 +100,7 @@ operation "launch" do
   definition "launch"
 end 
 
-define launch(@my_template, $param_location, $parram_site_name, $param_sq_image_version, $param_sql_sku_name, $param_sqladmin_username, $param_sql_password, $param_sql_database_size, $param_serviceplan_pricing_tier) return @my_template do
+define launch(@my_template, $param_location, $param_site_name, $param_sq_image_version, $param_sql_sku_name, $param_sqladmin_username, $param_sql_password, $param_sql_database_size, $param_serviceplan_pricing_tier) return @my_template do
   $params = {
     "location": {
       "value": $param_location
