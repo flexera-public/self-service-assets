@@ -64,7 +64,7 @@ parameter "param_sql_password" do
   no_echo true
   label "Azure SQL Server Administrator Password"
   category "SQL"
-  min_length 8
+  min_length 12
 end
 
 parameter "param_sql_sku_name" do
