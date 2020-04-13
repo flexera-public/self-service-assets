@@ -322,8 +322,8 @@ operation "launch" do
   definition "launch_handler"
 end
 
-define launch_handler(@stack,$vpc_cidr) return $cft_template,@stack do
-  call generate_cloudformation_template($vpc_cidr) retrieve $cft_template
+define launch_handler(@stack,$vpc_cidr,$hana_install_media) return $cft_template,@stack do
+  call generate_cloudformation_template($vpc_cidr,$hana_install_media) retrieve $cft_template
   task_label("provision CFT Stack")
   $stack = to_object(@stack)
   $stack["fields"]["template_body"] = $cft_template
@@ -344,7 +344,7 @@ define launch_handler(@stack,$vpc_cidr) return $cft_template,@stack do
 end
 
 # Example CFT
-define generate_cloudformation_template($vpc_cidr) return $cft_template do
+define generate_cloudformation_template($vpc_cidr,$hana_install_media) return $cft_template do
   $cft_template = to_s('{
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "Deploy AWS infrastructure and SAP HANA on AWS",
@@ -353,6 +353,12 @@ define generate_cloudformation_template($vpc_cidr) return $cft_template do
       "Description": "CIDR block for the Amazon VPC to create for SAP HANA deployment",
       "Type": "String",
       "Default": "'+$vpc_cidr+'"
+    },
+    HANAInstallMedia: {
+      "Description": "Full path to Amazon S3 location of SAP HANA software files (e.g.,
+      s3://myhanabucket/sap-hana-sps11/).",
+      "Type:" "String",
+      Default: "'+$hana_install_media+'"
     },
   },
   "Mappings": {},
