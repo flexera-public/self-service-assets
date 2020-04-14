@@ -354,20 +354,28 @@ define generate_cloudformation_template($vpc_cidr,$hana_install_media) return $c
       "Type": "String",
       "Default": "'+$vpc_cidr+'"
     },
-    HANAInstallMedia: {
-      "Description": "Full path to Amazon S3 location of SAP HANA software files (e.g.,
-      s3://myhanabucket/sap-hana-sps11/).",
-      "Type:" "String",
-      Default: "'+$hana_install_media+'"
-    },
+    "HANAInstallMedia": {
+          "Description": "Full path to Amazon S3 location of SAP HANA software files (e.g., s3://myhanabucket/sap-hana-sps11/).",
+          "Type": "String",
+          "Default": "'+$hana_install_media+'"
+      }
   },
   "Mappings": {},
   "Resources": {
     "VPC" : {
         "Type" : "AWS::EC2::VPC",
         "Properties" : {
-          "CidrBlock" : '+$vpc_cidr+',
-          "Tags" : [ {"Key" : "Application", "Value" :  "SAP HANA" } ]
+          "CidrBlock": {
+            "Ref": "VPCCIDR"
+          },
+          "EnableDnsHostnames": "true",
+          "EnableDnsSupport": "true",
+          "Tags": [
+            {
+              "Key": "Application",
+              "Value": "SAP HANA"
+            }
+          ]
         }
       }
   },
