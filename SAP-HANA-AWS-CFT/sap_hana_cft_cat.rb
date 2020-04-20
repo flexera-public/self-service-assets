@@ -5,20 +5,7 @@ long_description "This CAT deploys SAP HANA on AWS using the AWS Cloud Formation
 
 import "plugins/rs_aws_cft"
 
-parameter "key_name" do
-  type "string"
-  label "SSH Key Name"
-  default "default"
-end
-
-parameter "my_os" do
-  type "string"
-  label "Operating system"
-  default "SuSELinux12SP4ForSAP"
-  allowed_values "SuSELinux12SP4ForSAP", "RedHatLinux76ForSAP-With-HA-US"
-  constraint_description "Operating system (SLES or RHEL) and version for master/worker nodes"
-end
-
+## PARAMETERS
 parameter "param_instance_size" do
     type "string"
     min_length 1
@@ -29,6 +16,14 @@ parameter "param_instance_size" do
     default "small"
 end
 
+parameter "param_os" do
+    type "string"
+    label "Operating system"
+    default "SuSE-12"
+    allowed_values "SuSE-12", "RedHatLinux-76"
+    constraint_description "Operating system (SLES or RHEL) and version for master and worker nodes"
+  end
+  
 ## MAPPINGS
 mapping "map_instancetype" do {
   "small" => {
@@ -45,6 +40,16 @@ mapping "map_instancetype" do {
   }
 } end
 
+mapping "map_ostype" do {
+  "SuSE-12" => {
+    "aws" => "ami-0787571b4033204ad"
+  },
+  "RedHatLinux-76" => {
+    "aws" => "ami-054a9dc6c144331a0"
+    }
+} end
+
+
 resource "stack", type: "rs_aws_cft.stack" do
   stack_name join(["cft-", last(split(@@deployment.href, "/"))])
   capabilities "CAPABILITY_IAM"
@@ -57,8 +62,8 @@ operation "launch" do
   definition "launch_handler"
 end
 
-define launch_handler(@stack,$param_instance_size,$map_instancetype ) return $cft_template,@stack do
-  call generate_cloudformation_template($param_instance_size,$map_instancetype) retrieve $cft_template
+define launch_handler(@stack,$param_instance_size,$map_instancetype,$map_ostype, $param_os ) return $cft_template,@stack do
+  call generate_cloudformation_template($param_instance_size,$map_instancetype,$map_ostype, $param_os) retrieve $cft_template
   task_label("provision CFT Stack")
   $stack = to_object(@stack)
   $stack["fields"]["template_body"] = $cft_template
@@ -79,7 +84,7 @@ define launch_handler(@stack,$param_instance_size,$map_instancetype ) return $cf
 end
 
 # Example CFT
-define generate_cloudformation_template($param_instance_size,$map_instancetype) return $cft_template do
+define generate_cloudformation_template($param_instance_size,$map_instancetype,$map_ostype, $param_os) return $cft_template do
     $cft_template = to_s('{
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "Deploy AWS infrastructure and SAP HANA on AWS",
@@ -347,7 +352,7 @@ define generate_cloudformation_template($param_instance_size,$map_instancetype) 
                         }
                     }
                 ],
-                "ImageId": "ami-0787571b4033204ad",
+                "ImageId": "'+map($map_ostype, $param_os, "aws")+'",
                 "Tags": [
                     {
                         "Key": "Name",
@@ -390,7 +395,7 @@ define generate_cloudformation_template($param_instance_size,$map_instancetype) 
                         }
                     }
                 ],
-                "ImageId": "ami-0787571b4033204ad",
+                "ImageId": "'+map($map_ostype, $param_os, "aws")+'",
                 "Tags": [
                     {
                         "Key": "Name",
