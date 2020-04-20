@@ -11,14 +11,6 @@ parameter "key_name" do
   default "default"
 end
 
-parameter "bastion_instance_type" do
-  type "string"
-  label "BASTION Instance type"
-  default "t2.small"
-  allowed_values "t2.small","t2.large","m5.large","c5.large"
-  constraint_description "Amazon EC2 instance type for the bastion host."
-end
-
 parameter "my_os" do
   type "string"
   label "Operating system"
@@ -41,15 +33,6 @@ parameter "rdp_instance_type" do
   default "c5.large"
   allowed_values "c5.large", "m4.xlarge","m5.xlarge"
   constraint_description "Instance type for Windows RDP instance"
-end
-
-parameter "volume_type_hana_data" do
-  type "string"
-  label "Data Volume Type"
-  default "gp2"
-  allowed_values "gp2","io1"
-  constraint_description "EBS volume type for SAP HANA Data: General Purpose SSD (gp2) or
-  Provisioned IOPS SSD (io1)."
 end
 
 resource "stack", type: "rs_aws_cft.stack" do
@@ -315,55 +298,18 @@ define generate_cloudformation_template() return $cft_template do
                 }
             }
         },
-        "HANASecurityGroup": {
-            "Type": "AWS::EC2::SecurityGroup",
-            "Properties": {
-                "GroupDescription": "Enable external access to the HANA Master and allow communication from slave instances",
-                "VpcId": {
-                    "Ref": "VPC"
-                }
-            }
-        },
-        "HANASubnet": {
-            "Type": "AWS::EC2::Subnet",
-            "Properties": {
-                "VpcId": {
-                    "Ref": "VPC"
-                },
-                "CidrBlock": "10.0.1.0/24",
-                "Tags": [
-                    {
-                        "Key": "Application",
-                        "Value": "HANA"
-                    },
-                    {
-                        "Key": "Name",
-                        "Value": "Private Subnet - HANA"
-                    },
-                    {
-                        "Key": "Network",
-                        "Value": "Private"
-                    }
-                ]
-            }
-        },
         "HANAMasterInterface": {
             "Type": "AWS::EC2::NetworkInterface",
             "Properties": {
                 "Description": "Network Interface for HANA Master",
                 "SubnetId": {
-                    "Ref": "HANASubnet"
+                    "Ref": "Subnet"
                 },
-                "GroupSet": [
-                    {
-                        "Ref": "HANASecurityGroup"
-                    }
-                ],
                 "SourceDestCheck": "true",
                 "Tags": [
                     {
                         "Key": "Network",
-                        "Value": "Private"
+                        "Value": "Public Subnet"
                     }
                 ]
             }
@@ -405,21 +351,10 @@ define generate_cloudformation_template() return $cft_template do
             "Type": "AWS::EC2::NetworkInterface",
             "Properties": {
                 "SubnetId": {
-                    "Ref": "HANASubnet"
+                    "Ref": "Subnet"
                 },
                 "Description": "Interface for HANA Worker 1",
-                "GroupSet": [
-                    {
-                        "Ref": "HANASecurityGroup"
-                    }
-                ],
-                "SourceDestCheck": "true",
-                "Tags": [
-                    {
-                        "Key": "Network",
-                        "Value": "Private"
-                    }
-                ]
+                "SourceDestCheck": "true"
             }
         },
         "HANAWorkerInstance1": {
