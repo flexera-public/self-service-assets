@@ -90,242 +90,371 @@ define generate_cloudformation_template() return $cft_template do
     $cft_template = to_s('{
     "AWSTemplateFormatVersion": "2010-09-09",
     "Description": "Deploy AWS infrastructure and SAP HANA on AWS",
-    "Resources" : {
-        "VPC" : {
-            "Type" : "AWS::EC2::VPC",
-            "Properties" : {
-            "CidrBlock" : "10.0.0.0/16",
-            "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+    "Resources": {
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": "10.0.0.0/16",
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackId"
+                        }
+                    }
+                ]
             }
         },
-        "Subnet" : {
-            "Type" : "AWS::EC2::Subnet",
-            "Properties" : {
-                "VpcId" : { "Ref" : "VPC" },
-                "CidrBlock" : "10.0.0.0/24",
-                "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+        "Subnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": "10.0.2.0/24",
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackId"
+                        }
+                    }
+                ]
             }
         },
-
-        "InternetGateway" : {
-            "Type" : "AWS::EC2::InternetGateway",
-            "Properties" : {
-            "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackId"
+                        }
+                    }
+                ]
             }
         },
-
-        "AttachGateway" : {
-            "Type" : "AWS::EC2::VPCGatewayAttachment",
-            "Properties" : {
-                "VpcId" : { "Ref" : "VPC" },
-                "InternetGatewayId" : { "Ref" : "InternetGateway" }
+        "AttachGateway": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
             }
         },
-
-        "RouteTable" : {
-            "Type" : "AWS::EC2::RouteTable",
-            "Properties" : {
-                "VpcId" : {"Ref" : "VPC"},
-                "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+        "RouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackId"
+                        }
+                    }
+                ]
             }
         },
-
-        "Route" : {
-            "Type" : "AWS::EC2::Route",
-            "DependsOn" : "AttachGateway",
-            "Properties" : {
-                "RouteTableId" : { "Ref" : "RouteTable" },
-                "DestinationCidrBlock" : "0.0.0.0/0",
-                "GatewayId" : { "Ref" : "InternetGateway" }
+        "Route": {
+            "Type": "AWS::EC2::Route",
+            "DependsOn": "AttachGateway",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "RouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                }
             }
         },
-
-        "SubnetRouteTableAssociation" : {
-            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
-            "Properties" : {
-                "SubnetId" : { "Ref" : "Subnet" },
-                "RouteTableId" : { "Ref" : "RouteTable" }
+        "SubnetRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "Subnet"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTable"
+                }
             }
         },
-
-        "NetworkAcl" : {
-            "Type" : "AWS::EC2::NetworkAcl",
-            "Properties" : {
-                "VpcId" : {"Ref" : "VPC"},
-                "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+        "NetworkAcl": {
+            "Type": "AWS::EC2::NetworkAcl",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": {
+                            "Ref": "AWS::StackId"
+                        }
+                    }
+                ]
             }
         },
-
-        "InboundHTTPNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "NetworkAclId" : {"Ref" : "NetworkAcl"},
-                "RuleNumber" : "100",
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "Egress" : "false",
-                "CidrBlock" : "0.0.0.0/0",
-                "PortRange" : {"From" : "80", "To" : "80"}
+        "InboundHTTPNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                },
+                "RuleNumber": "100",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "false",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "80",
+                    "To": "80"
+                }
             }
         },
-
-        "InboundSSHNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "NetworkAclId" : {"Ref" : "NetworkAcl"},
-                "RuleNumber" : "101",
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "Egress" : "false",
-                "CidrBlock" : "0.0.0.0/0",
-                "PortRange" : {"From" : "22", "To" : "22"}
+        "InboundSSHNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                },
+                "RuleNumber": "101",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "false",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "22",
+                    "To": "22"
+                }
             }
         },
-
-        "InboundResponsePortsNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "NetworkAclId" : {"Ref" : "NetworkAcl"},
-                "RuleNumber" : "102",
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "Egress" : "false",
-                "CidrBlock" : "0.0.0.0/0",
-                "PortRange" : {"From" : "1024", "To" : "65535"}
+        "InboundResponsePortsNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                },
+                "RuleNumber": "102",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "false",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "1024",
+                    "To": "65535"
+                }
             }
         },
-        "OutBoundHTTPNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "NetworkAclId" : {"Ref" : "NetworkAcl"},
-                "RuleNumber" : "100",
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "Egress" : "true",
-                "CidrBlock" : "0.0.0.0/0",
-                "PortRange" : {"From" : "80", "To" : "80"}
+        "OutBoundHTTPNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                },
+                "RuleNumber": "100",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "true",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "80",
+                    "To": "80"
+                }
             }
         },
-
-        "OutBoundHTTPSNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "NetworkAclId" : {"Ref" : "NetworkAcl"},
-                "RuleNumber" : "101",
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "Egress" : "true",
-                "CidrBlock" : "0.0.0.0/0",
-                "PortRange" : {"From" : "443", "To" : "443"}
+        "OutBoundHTTPSNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                },
+                "RuleNumber": "101",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "true",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "443",
+                    "To": "443"
+                }
             }
         },
-
-        "OutBoundResponsePortsNetworkAclEntry" : {
-            "Type" : "AWS::EC2::NetworkAclEntry",
-            "Properties" : {
-                "NetworkAclId" : {"Ref" : "NetworkAcl"},
-                "RuleNumber" : "102",
-                "Protocol" : "6",
-                "RuleAction" : "allow",
-                "Egress" : "true",
-                "CidrBlock" : "0.0.0.0/0",
-                "PortRange" : {"From" : "1024", "To" : "65535"}
+        "OutBoundResponsePortsNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                },
+                "RuleNumber": "102",
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "Egress": "true",
+                "CidrBlock": "0.0.0.0/0",
+                "PortRange": {
+                    "From": "1024",
+                    "To": "65535"
+                }
             }
         },
-
-        "SubnetNetworkAclAssociation" : {
-            "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
-            "Properties" : {
-                "SubnetId" : { "Ref" : "Subnet" },
-                "NetworkAclId" : { "Ref" : "NetworkAcl" }
+        "SubnetNetworkAclAssociation": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "Subnet"
+                },
+                "NetworkAclId": {
+                    "Ref": "NetworkAcl"
+                }
             }
         },
         "HANASecurityGroup": {
-	        "Type": "AWS::EC2::SecurityGroup",
-	        "Properties": {
-		        "GroupDescription": "Enable external access to the HANA Master and allow communication from slave instances",
-		        "VpcId": {
-			        "Ref" : "VPC"
-			    },
-	        }
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Enable external access to the HANA Master and allow communication from slave instances",
+                "VpcId": {
+                    "Ref": "VPC"
+                }
+            }
         },
         "HANASubnet": {
-	        "Type": "AWS::EC2::Subnet",
-	        "Properties": {
-		        "VpcId": {
-			        "Ref": "VPC"
-		        },
-		        "CidrBlock":"10.0.1.0/24",
-		        "Tags": [
-			        {
-				    "Key": "Application",
-				    "Value": "HANA"
-			        },
-			        {
-				    "Key": "Name",
-				    "Value": "Private Subnet - HANA"
-			        },
-			        {
-				    "Key": "Network",
-				    "Value": "Private"
-			        }
-		        ],
-	        }
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": "10.0.1.0/24",
+                "Tags": [
+                    {
+                        "Key": "Application",
+                        "Value": "HANA"
+                    },
+                    {
+                        "Key": "Name",
+                        "Value": "Private Subnet - HANA"
+                    },
+                    {
+                        "Key": "Network",
+                        "Value": "Private"
+                    }
+                ]
+            }
         },
         "HANAMasterInterface": {
-	        "Type": "AWS::EC2::NetworkInterface",
-	        "Properties": {
-		        "Description": "Network Interface for HANA Master",
-		        "SubnetId": {
-			        "Ref": "HANASubnet"
-		        },
-		        "GroupSet": [
-			        {
-				    "Ref": "HANASecurityGroup"
-			        }
-		        ],
-		        "SourceDestCheck": "true",
-		        "Tags": [
-			        {
-				    "Key": "Network",
-				    "Value": "Private"
-			        }
-		        ]
-	        }
+            "Type": "AWS::EC2::NetworkInterface",
+            "Properties": {
+                "Description": "Network Interface for HANA Master",
+                "SubnetId": {
+                    "Ref": "HANASubnet"
+                },
+                "GroupSet": [
+                    {
+                        "Ref": "HANASecurityGroup"
+                    }
+                ],
+                "SourceDestCheck": "true",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "Private"
+                    }
+                ]
+            }
         },
         "HANAMasterInstance": {
-	        "Type": "AWS::EC2::Instance",
-	        "Metadata": {
-		        "HostRole": "Master",
-	        },
-	        "Properties": {
-		        "NetworkInterfaces": [
-			    {
-				    "NetworkInterfaceId": {
-					        "Ref": "HANAMasterInterface"
-				        },
-				    "DeviceIndex": "0"
-			    }
-		        ],
-		        "BlockDeviceMappings": [
-			        {
-				        "DeviceName": "/dev/sda1",
-				        "Ebs": {
-					    "VolumeSize": "50",
-					    "VolumeType": "gp2"
-				        }
-			        }
-		        ],
-		        "ImageId":ami-0787571b4033204ad,
-		        "Tags": [
-			        {
-				    "Key": "Name",
-				    "Value": "SAP HANA Master"
-			        }
-		        ],
-		        "InstanceType":"r5.2xlarge", 
-	        }
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "HostRole": "Master",
+            },
+            "Properties": {
+                "NetworkInterfaces": [
+                    {
+                        "NetworkInterfaceId": {
+                            "Ref": "HANAMasterInterface"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "VolumeSize": "50",
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "ImageId": "ami-0787571b4033204ad",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SAP HANA Master"
+                    }
+                ],
+                "InstanceType": "r5.2xlarge",
+            }
+        },
+        "HANAWorker1Interface": {
+            "Type": "AWS::EC2::NetworkInterface",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "HANASubnet"
+                },
+                "Description": "Interface for HANA Worker 1",
+                "GroupSet": [
+                    {
+                        "Ref": "HANASubnet"
+                    }
+                ],
+                "SourceDestCheck": "true",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "Private"
+                    }
+                ]
+            }
+        },
+        "HANAWorkerInstance1": {
+            "Type": "AWS::EC2::Instance",
+            "Metadata": {
+                "HostRole": "Worker"
+            },
+            "Properties": {
+                "NetworkInterfaces": [
+                    {
+                        "NetworkInterfaceId": {
+                            "Ref": "HANAWorker1Interface"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "VolumeSize": "50",
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "ImageId": "ami-0787571b4033204ad",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SAP HANA Worker 1"
+                    }
+                ],
+                "InstanceType": "r5.2xlarge"
+            }
         }
-    }  
+    }
 }')
 end
