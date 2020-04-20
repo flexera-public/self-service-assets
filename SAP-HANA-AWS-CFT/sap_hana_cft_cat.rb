@@ -239,6 +239,92 @@ define generate_cloudformation_template() return $cft_template do
                 "SubnetId" : { "Ref" : "Subnet" },
                 "NetworkAclId" : { "Ref" : "NetworkAcl" }
             }
+        },
+        "HANASecurityGroup": {
+	        "Type": "AWS::EC2::SecurityGroup",
+	        "Properties": {
+		        "GroupDescription": "Enable external access to the HANA Master and allow communication from slave instances",
+		        "VpcId": {
+			        "Ref" : "VPC"
+			    },
+	        }
+        },
+        "HANASubnet": {
+	        "Type": "AWS::EC2::Subnet",
+	        "Properties": {
+		        "VpcId": {
+			        "Ref": "VPC"
+		        },
+		        "CidrBlock":"10.0.1.0/24",
+		        "Tags": [
+			        {
+				    "Key": "Application",
+				    "Value": "HANA"
+			        },
+			        {
+				    "Key": "Name",
+				    "Value": "Private Subnet - HANA"
+			        },
+			        {
+				    "Key": "Network",
+				    "Value": "Private"
+			        }
+		        ],
+	        }
+        },
+        "HANAMasterInterface": {
+	        "Type": "AWS::EC2::NetworkInterface",
+	        "Properties": {
+		        "Description": "Network Interface for HANA Master",
+		        "SubnetId": {
+			        "Ref": "HANASubnet"
+		        },
+		        "GroupSet": [
+			        {
+				    "Ref": "HANASecurityGroup"
+			        }
+		        ],
+		        "SourceDestCheck": "true",
+		        "Tags": [
+			        {
+				    "Key": "Network",
+				    "Value": "Private"
+			        }
+		        ]
+	        }
+        },
+        "HANAMasterInstance": {
+	        "Type": "AWS::EC2::Instance",
+	        "Metadata": {
+		        "HostRole": "Master",
+	        },
+	        "Properties": {
+		        "NetworkInterfaces": [
+			    {
+				    "NetworkInterfaceId": {
+					        "Ref": "HANAMasterInterface"
+				        },
+				    "DeviceIndex": "0"
+			    }
+		        ],
+		        "BlockDeviceMappings": [
+			        {
+				        "DeviceName": "/dev/sda1",
+				        "Ebs": {
+					    "VolumeSize": "50",
+					    "VolumeType": "gp2"
+				        }
+			        }
+		        ],
+		        "ImageId":ami-0787571b4033204ad,
+		        "Tags": [
+			        {
+				    "Key": "Name",
+				    "Value": "SAP HANA Master"
+			        }
+		        ],
+		        "InstanceType":"r5.2xlarge", 
+	        }
         }
     }  
 }')
