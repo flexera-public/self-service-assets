@@ -410,7 +410,7 @@ define generate_cloudformation_template() return $cft_template do
                 "Description": "Interface for HANA Worker 1",
                 "GroupSet": [
                     {
-                        "Ref": "HANASubnet"
+                        "Ref": "HANASecurityGroup"
                     }
                 ],
                 "SourceDestCheck": "true",
