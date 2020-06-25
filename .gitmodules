@@ -1,0 +1,3 @@
+[submodule "SEG-7/cookbook/rs-iis"]
+	path = SEG-7/cookbook/rs-iis
+	url = git@github.com:rightscale-cookbooks/rs-iis.git
