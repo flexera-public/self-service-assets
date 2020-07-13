@@ -112,18 +112,19 @@ resource "server1", type: "azure_compute.virtualmachine" do
 end
 
 resource "my_vm_extension", type: "azure_compute.extensions" do
-  name join(["easy-", last(split(@@deployment.href, "/"))])
-  resource_group $region
-  location $param_resource_group
+  name join(["install-docker-", last(split(@@deployment.href, "/"))])
+  resource_group $param_resource_group
+  location $region
   virtualMachineName @server1.name
   properties do {
-    "publisher" => "Microsoft.OSTCExtensions",
-    "type" => "CustomScriptForLinux",
-    "typeHandlerVersion" => "1.5",
+    "publisher" => "Microsoft.Azure.Extensions",
+    "type" => "CustomScript",
+    "typeHandlerVersion" => "2.1",
     "autoUpgradeMinorVersion" => true,
     "settings" => {
-       "fileUris" => [ "https://s3.amazonaws.com/rightscale-services/scripts/nginx.sh" ],
-       "commandToExecute" => "sh nginx.sh"
+       "fileUris" => [ "https://s3.amazonaws.com/rightscale-services/terraform/install-docker-and-run-terraform-version.sh",
+                       "https://s3.amazonaws.com/rightscale-services/terraform/download-tf-files.sh"
+                     ],
     }
   } end
 end
@@ -136,5 +137,17 @@ end
 define launch_handler($tenant_id, $subscription_id, @azure_nic, @server1, @my_vm_extension) return @server1,@my_vm_extension do
   provision(@azure_nic)
   provision(@server1)
+  $vm_extension = to_object(@my_vm_extension)
+  $cmd = "
+export ARM_CLIENT_ID="+ cred("ARM_CLIENT_ID") +"; \
+export ARM_CLIENT_SECRET="+ cred("ARM_CLIENT_ID") +"; \
+export ARM_SUBSCRIPTION_ID="+ cred("ARM_CLIENT_ID") +"; \
+export ARM_TENANT_ID="+ cred("ARM_CLIENT_ID") +"; \
+export ARM_ACCESS_KEY="+ cred("ARM_CLIENT_ID") +"; \
+sh install-docker-and-run-terraform-version.sh; \
+sh download-tf-files.sh
+"
+  $vm_extension["properties"]["settings"]["commandToExecute"] = $cmd
+  @my_vm_extension = $vm_extension
   provision(@my_vm_extension)
 end
