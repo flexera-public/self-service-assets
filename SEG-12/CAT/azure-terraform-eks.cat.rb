@@ -122,9 +122,11 @@ resource "my_vm_extension", type: "azure_compute.extensions" do
     "typeHandlerVersion" => "2.1",
     "autoUpgradeMinorVersion" => true,
     "settings" => {
-       "fileUris" => [ "https://s3.amazonaws.com/rightscale-services/terraform/install-docker-and-run-terraform-version.sh",
-                       "https://s3.amazonaws.com/rightscale-services/terraform/download-tf-files.sh"
-                     ],
+      "fileUris" => [ "https://s3.amazonaws.com/rightscale-services/terraform/install-docker-and-run-terraform-version.sh",
+                      "https://s3.amazonaws.com/rightscale-services/terraform/download-tf-files.sh",
+                      "https://s3.amazonaws.com/rightscale-services/terraform/docker-run-terraform-plan.sh"
+                    ],
+      "commandToExecute" => ""
     }
   } end
 end
@@ -134,20 +136,24 @@ operation "launch" do
   definition "launch_handler"
 end
 
-define launch_handler($tenant_id, $subscription_id, @azure_nic, @server1, @my_vm_extension) return @server1,@my_vm_extension do
+define launch_handler($tenant_id, $subscription_id, @azure_nic, @server1, @my_vm_extension, $region) return @server1,@my_vm_extension do
   provision(@azure_nic)
   provision(@server1)
   $vm_extension = to_object(@my_vm_extension)
   $cmd = "
 export ARM_CLIENT_ID="+ cred("ARM_CLIENT_ID") +"; \
-export ARM_CLIENT_SECRET="+ cred("ARM_CLIENT_ID") +"; \
-export ARM_SUBSCRIPTION_ID="+ cred("ARM_CLIENT_ID") +"; \
-export ARM_TENANT_ID="+ cred("ARM_CLIENT_ID") +"; \
-export ARM_ACCESS_KEY="+ cred("ARM_CLIENT_ID") +"; \
+export ARM_CLIENT_SECRET="+ cred("ARM_CLIENT_SECRET") +"; \
+export ARM_SUBSCRIPTION_ID="+ cred("ARM_SUBSCRIPTION_ID") +"; \
+export ARM_TENANT_ID="+ cred("ARM_TENANT_ID") +"; \
+export ARM_ACCESS_KEY="+ cred("ARM_ACCESS_KEY") +"; \
+export TF_VAR_location="+ $region +"; \
+export TF_VAR_prefix=rstest; \
 sh install-docker-and-run-terraform-version.sh; \
-sh download-tf-files.sh
+sh download-tf-files.sh;
+sh docker-run-terraform-plan.sh
 "
-  $vm_extension["properties"]["settings"]["commandToExecute"] = $cmd
+  call sys_log.detail($vm_extension)
+  $vm_extension["fields"]["properties"]["settings"]["commandToExecute"] = $cmd
   @my_vm_extension = $vm_extension
   provision(@my_vm_extension)
 end
