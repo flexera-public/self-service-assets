@@ -2,6 +2,15 @@ provider "azurerm" {
   features {}
 }
 
+terraform {
+  backend "azurerm" {    
+    resource_group_name  = "AADDS"
+    storage_account_name = "tfstateflexera"
+    container_name       = "tfstate"
+    key                  = "var.prefix.terraform.tfstate"
+  }
+}
+
 resource "azurerm_resource_group" "example" {
   name     = "${var.prefix}-k8s-resources"
   location = var.location

@@ -148,9 +148,10 @@ export ARM_TENANT_ID="+ cred("ARM_TENANT_ID") +"; \
 export ARM_ACCESS_KEY="+ cred("ARM_ACCESS_KEY") +"; \
 export TF_VAR_location="+ $region +"; \
 export TF_VAR_prefix=rstest; \
-sh install-docker-and-run-terraform-version.sh; \
-sh download-tf-files.sh;
-sh docker-run-terraform-plan.sh
+chmod +x *.sh
+./install-docker-and-run-terraform-version.sh; \
+./download-tf-files.sh;
+./docker-run-terraform-plan.sh
 "
   call sys_log.detail($vm_extension)
   $vm_extension["fields"]["properties"]["settings"]["commandToExecute"] = $cmd
