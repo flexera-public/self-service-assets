@@ -1,4 +1,4 @@
-name 'Azure Compute Test CAT'
+name 'Azure Terraform Test Cat'
 rs_ca_ver 20161221
 short_description "Azure Compute - Test CAT"
 import "sys_log"
@@ -50,6 +50,17 @@ permission "read_creds" do
   actions   "rs_cm.show_sensitive","rs_cm.index_sensitive"
   resources "rs_cm.credentials"
 end
+resource "azure_public_ip", type: "rs_azure_networking.public_ip_address" do
+  name join(['linux-public-ip-', last(split(@@deployment.href,"/"))])
+  location $region
+  resource_group $param_resource_group
+  properties do {
+    "publicIpAllocationMethod": "Dynamic"
+  } end
+  sku do {
+    "name": "Basic"
+  } end
+end
 
 resource "azure_nic", type: "rs_azure_networking.interface" do
   name join(['linux-', last(split(@@deployment.href,"/"))])
@@ -64,6 +75,9 @@ resource "azure_nic", type: "rs_azure_networking.interface" do
         "primary": true,
         "subnet": {
           "id": join(["subscriptions/", $subscription_id, "/resourceGroups/",$param_resource_group,"/providers/Microsoft.Network/virtualNetworks/",$param_virtual_network,"/subnets/",$param_subnet])
+        },
+        "publicIpAddress": {
+          "id": @azure_public_ip.id
         }
       }
     }]
@@ -136,23 +150,24 @@ operation "launch" do
   definition "launch_handler"
 end
 
-define launch_handler($tenant_id, $subscription_id, @azure_nic, @server1, @my_vm_extension, $region) return @server1,@my_vm_extension do
+define launch_handler($tenant_id, $subscription_id, @azure_public_ip,@azure_nic, @server1, @my_vm_extension, $region) return @server1,@my_vm_extension do
+  provision(@azure_public_ip)
   provision(@azure_nic)
   provision(@server1)
   $vm_extension = to_object(@my_vm_extension)
-  $cmd = "
-export ARM_CLIENT_ID="+ cred("ARM_CLIENT_ID") +"; \
-export ARM_CLIENT_SECRET="+ cred("ARM_CLIENT_SECRET") +"; \
-export ARM_SUBSCRIPTION_ID="+ cred("ARM_SUBSCRIPTION_ID") +"; \
-export ARM_TENANT_ID="+ cred("ARM_TENANT_ID") +"; \
-export ARM_ACCESS_KEY="+ cred("ARM_ACCESS_KEY") +"; \
-export TF_VAR_location="+ $region +"; \
-export TF_VAR_prefix=rstest; \
+  $cmd = '
+export ARM_CLIENT_ID='+ cred("ARM_CLIENT_ID") +'; \
+export ARM_CLIENT_SECRET='+ cred("ARM_CLIENT_SECRET") +'; \
+export ARM_SUBSCRIPTION_ID='+ cred("ARM_SUBSCRIPTION_ID") +'; \
+export ARM_TENANT_ID='+ cred("ARM_TENANT_ID") +'; \
+export ARM_ACCESS_KEY='+ cred("ARM_ACCESS_KEY") +'; \
+export TF_VAR_location='+ $region +'; \
+export TF_VAR_prefix=yokogawatest; \
 chmod +x *.sh
-./install-docker-and-run-terraform-version.sh; \
+./install-docker-and-run-terraform-version.sh;
 ./download-tf-files.sh;
 ./docker-run-terraform-plan.sh
-"
+'
   call sys_log.detail($vm_extension)
   $vm_extension["fields"]["properties"]["settings"]["commandToExecute"] = $cmd
   @my_vm_extension = $vm_extension
