@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 env
 mkdir -p  /tmp/.terraform
 docker run --mount type=bind,source=/tmp/tf,target=/tf \

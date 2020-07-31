@@ -3,12 +3,7 @@ provider "azurerm" {
 }
 
 terraform {
-  backend "azurerm" {    
-    resource_group_name  = "AADDS"
-    storage_account_name = "tfstateflexera"
-    container_name       = "tfstate"
-    key                  = "var.prefix.terraform.tfstate"
-  }
+  backend "azurerm" { }
 }
 
 resource "azurerm_resource_group" "example" {

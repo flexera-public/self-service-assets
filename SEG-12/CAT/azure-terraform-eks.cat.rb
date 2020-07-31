@@ -15,6 +15,7 @@ parameter "subscription_id" do
   like $cloud_parameters.subscription_id
   operations 'launch'
 end
+
 parameter 'region' do
   type 'string'
   label 'Region'
@@ -24,6 +25,12 @@ end
 parameter 'param_resource_group' do
   type 'string'
   label 'Resource Group'
+  operations 'launch'
+end
+
+parameter 'param_prefix' do
+  label 'Prefix'
+  type 'string'
   operations 'launch'
 end
 
@@ -150,19 +157,19 @@ operation "launch" do
   definition "launch_handler"
 end
 
-define launch_handler($tenant_id, $subscription_id, @azure_public_ip,@azure_nic, @server1, @my_vm_extension, $region) return @server1,@my_vm_extension do
+define launch_handler($tenant_id, $subscription_id, $param_prefix, @azure_public_ip,@azure_nic, @server1, @my_vm_extension, $region) return @server1,@my_vm_extension do
   provision(@azure_public_ip)
   provision(@azure_nic)
   provision(@server1)
   $vm_extension = to_object(@my_vm_extension)
   $cmd = '
-export ARM_CLIENT_ID='+ cred("ARM_CLIENT_ID") +'; \
-export ARM_CLIENT_SECRET='+ cred("ARM_CLIENT_SECRET") +'; \
-export ARM_SUBSCRIPTION_ID='+ cred("ARM_SUBSCRIPTION_ID") +'; \
-export ARM_TENANT_ID='+ cred("ARM_TENANT_ID") +'; \
-export ARM_ACCESS_KEY='+ cred("ARM_ACCESS_KEY") +'; \
-export TF_VAR_location='+ $region +'; \
-export TF_VAR_prefix=yokogawatest; \
+export ARM_CLIENT_ID="'+ cred("ARM_CLIENT_ID") +'"; \
+export ARM_CLIENT_SECRET="'+ cred("ARM_CLIENT_SECRET") +'"; \
+export ARM_SUBSCRIPTION_ID="'+ cred("ARM_SUBSCRIPTION_ID") +'"; \
+export ARM_TENANT_ID="'+ cred("ARM_TENANT_ID") +'"; \
+export ARM_ACCESS_KEY="'+ cred("ARM_ACCESS_KEY") +'"; \
+export TF_VAR_location="'+ $region +'"; \
+export TF_VAR_prefix="'+ $param_prefix +'"; \
 chmod +x *.sh
 ./install-docker-and-run-terraform-version.sh;
 ./download-tf-files.sh;
