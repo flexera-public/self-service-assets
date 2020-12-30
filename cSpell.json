@@ -1,0 +1,11 @@
+{
+  "words": [
+    "flexera"
+  ],
+  "allowCompoundWords": true,
+  "ignorePaths": [
+    "node_modules",        // this will ignore anything the node_modules directory
+    "self-service-assets.code-workspace",
+    ".git"                // Ignore the .git directory
+  ]
+}
