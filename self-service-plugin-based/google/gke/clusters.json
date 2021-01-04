@@ -1,0 +1,110 @@
+    {
+      "name": "rs-cluster-1420561003",
+      "nodeConfig": {
+        "machineType": "n1-standard-1",
+        "diskSizeGb": 100,
+        "oauthScopes": [
+          "https://www.googleapis.com/auth/logging.write",
+          "https://www.googleapis.com/auth/monitoring"
+        ],
+        "metadata": {
+          "disable-legacy-endpoints": "true"
+        },
+        "imageType": "COS",
+        "serviceAccount": "default",
+        "diskType": "pd-standard",
+        "shieldedInstanceConfig": {
+          "enableIntegrityMonitoring": true
+        }
+      },
+      "masterAuth": {
+        "clusterCaCertificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURERENDQWZTZ0F3SUJBZ0lSQUlJeVUzaTZBbjRxempaNnp5V1cvUEV3RFFZSktvWklodmNOQVFFTEJRQXcKTHpFdE1Dc0dBMVVFQXhNa05UTXhaalE1TUdVdFpHSXlNQzAwWldJNUxXSm1aamd0WkRJek5tRTFaV0kwTlRnegpNQjRYRFRJd01EVXlOekl6TVRZek1sb1hEVEkxTURVeU56QXdNVFl6TWxvd0x6RXRNQ3NHQTFVRUF4TWtOVE14ClpqUTVNR1V0WkdJeU1DMDBaV0k1TFdKbVpqZ3RaREl6Tm1FMVpXSTBOVGd6TUlJQklqQU5CZ2txaGtpRzl3MEIKQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBcGpuTUsvK0h6Y0N3VFBGUDBvd3YvL2R4eXBneitJcUxtRnYzY2sxbwpFN3NLQWdYZjIrY2VpeFhzQ1pLdk92QWtOQmhQcHJRUERQMUV6Kyt5MGkxVHJuUFpRR0ljZ1RIanlyZ2Z3Q1JrCmg1OHJBbjM0SUZhWURtTDRaSWhQc2pIR2tMY3hhUTY0Q1hVbFo1S3NOKy9Ecyt3VFhJK0xvMStXNDk5NzdIVnUKMFhzaDd2RWU5bnhEcWZGZXdPYlBZYlRRWE5kajk3ekpPc2VxQlZOenNCOHNiQUtnRVNZTnV0Tjk1RzBwTi9YZgoyT3BORkxZTjRMdCtkUzZVYi82NnY2bk4rYnF4NitIT0poU0NoS2gxVDBFOE5wdk1CZzdJZ3NLZVQ3NjErV3JtClNiRFhQK0ltRWIrUU5sOXBod0IxQlhuME1zT2VhVXBIVWdlcE9qRG16OXlJMlFJREFRQUJveU13SVRBT0JnTlYKSFE4QkFmOEVCQU1DQWdRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQQpaU1FTUTNFVGQ0ZWJRbXNic1VlSi9LUVhmOWpBV0RHbE1wKy9lUkNPQkVpcXBxS1NidlJGL0ZDTVlHS2ZmNWxoCmJ2Z3pwTHpSaFRJbjlCZFg5SUdZbkhoV0h4T0hxb2JEUks5YzRUd2FXbExvYzVlNHJhSVIzOWRDa21KNnZhRnAKaHpCRXViTjlJMzV3bmlUMjJnbjBHaGxqUXZQb0RIZWZHZTFzNzRTdTJnSUhzTGN4Uzl4VjhTN1c0a2FhbU1iYQpKNGFBcUhIUitLdTBNdHlQdDUraitCeWxoQnJWREN6YWZobHBNdVk2S2JkZzlMRXJRaXRod0wxYTg0cFFNeUhYCkZHTzRFRFViVk1hMjRpV3IwRjFBY0pkVjhnYkE4SzNLRzNZdW16Znp1Q1VyZkVTYmVNYUxrcmUwTTZsSDhERGUKT2FwSTREZlFrZVBkR1VtRDk3M0x6QT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+      },
+      "loggingService": "logging.googleapis.com/kubernetes",
+      "monitoringService": "monitoring.googleapis.com/kubernetes",
+      "network": "default",
+      "clusterIpv4Cidr": "10.12.0.0/14",
+      "addonsConfig": {
+        "kubernetesDashboard": {
+          "disabled": true
+        },
+        "networkPolicyConfig": {
+          "disabled": true
+        }
+      },
+      "subnetwork": "default",
+      "nodePools": [
+        {
+          "name": "nodepool1",
+          "config": {
+            "machineType": "n1-standard-1",
+            "diskSizeGb": 100,
+            "oauthScopes": [
+              "https://www.googleapis.com/auth/logging.write",
+              "https://www.googleapis.com/auth/monitoring"
+            ],
+            "metadata": {
+              "disable-legacy-endpoints": "true"
+            },
+            "imageType": "COS",
+            "serviceAccount": "default",
+            "diskType": "pd-standard",
+            "shieldedInstanceConfig": {
+              "enableIntegrityMonitoring": true
+            }
+          },
+          "initialNodeCount": 3,
+          "management": {
+            "autoUpgrade": true
+          },
+          "podIpv4CidrSize": 24,
+          "locations": [
+            "us-central1-a"
+          ],
+          "selfLink": "https://container.googleapis.com/v1/projects/rightscale.com:services1/zones/us-central1-a/clusters/rs-cluster-1420561003/nodePools/nodepool1",
+          "version": "1.15.11-gke.12",
+          "instanceGroupUrls": [
+            "https://www.googleapis.com/compute/v1/projects/rightscale.com:services1/zones/us-central1-a/instanceGroupManagers/gke-rs-cluster-1420561003-nodepool1-7f747a0f-grp"
+          ],
+          "status": "RUNNING",
+          "upgradeSettings": {
+            "maxSurge": 1
+          }
+        }
+      ],
+      "locations": [
+        "us-central1-a"
+      ],
+      "labelFingerprint": "a9dc16a7",
+      "legacyAbac": {},
+      "ipAllocationPolicy": {},
+      "maintenancePolicy": {
+        "resourceVersion": "e3b0c442"
+      },
+      "networkConfig": {
+        "network": "projects/rightscale.com:services1/global/networks/default",
+        "subnetwork": "projects/rightscale.com:services1/regions/us-central1/subnetworks/default"
+      },
+      "defaultMaxPodsConstraint": {
+        "maxPodsPerNode": "110"
+      },
+      "databaseEncryption": {
+        "state": "DECRYPTED"
+      },
+      "shieldedNodes": {},
+      "selfLink": "https://container.googleapis.com/v1/projects/rightscale.com:services1/zones/us-central1-a/clusters/rs-cluster-1420561003",
+      "zone": "us-central1-a",
+      "endpoint": "104.198.144.149",
+      "initialClusterVersion": "1.15.11-gke.12",
+      "currentMasterVersion": "1.15.11-gke.12",
+      "currentNodeVersion": "1.15.11-gke.12",
+      "createTime": "2020-05-28T00:16:32+00:00",
+      "status": "RUNNING",
+      "nodeIpv4CidrSize": 24,
+      "servicesIpv4Cidr": "10.15.240.0/20",
+      "instanceGroupUrls": [
+        "https://www.googleapis.com/compute/v1/projects/rightscale.com:services1/zones/us-central1-a/instanceGroupManagers/gke-rs-cluster-1420561003-nodepool1-7f747a0f-grp"
+      ],
+      "currentNodeCount": 3,
+      "location": "us-central1-a"
+    }
