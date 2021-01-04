@@ -72,6 +72,8 @@ define defn_terminate() return $terminate_response do
 end
 
 define defn_create_workspace($tf_cat_token,$base_url,$tf_version,@deployment) return $workspace_href, $workspace_id do
+  $workspace_href = ""
+  $workspace_id = ""
   $response = http_post(
     headers: {
       "Authorization": join(["Bearer ", $tf_cat_token]),
@@ -84,27 +86,33 @@ define defn_create_workspace($tf_cat_token,$base_url,$tf_version,@deployment) re
         "attributes": {
           "name": @deployment.name,
           "terraform-version": $tf_version,
-          "working-directory": "/aws",
+          "working-directory": "/Terraform/Terraform_Cloud/aws",
           "vcs-repo": {
-            "identifier": "rs-services/tf-cloud",
-            "display-identifier": "rs-services/tf-cloud",
+            "identifier": "flexera/self-service-assets",
+            "display-identifier": "flexera/self-service-assets",
             "oauth-token-id": "ot-JjG8EZii7kvFWtUr",
-            "branch": "",
+            "branch": "Terraform-Cloud",
             "default-branch": true,
             "ingress-submodules": true,
             "file-triggers-enabled": false
           },
-          "vcs-repo-identifier": "rs-services/tf-cloud",
+          "vcs-repo-identifier": "flexera/self-service-assets",
           "auto-apply": true
         }
       }
     },
     url: join([$base_url, "/organizations/Flexera-SE/workspaces"])
   )
+
   $$create_response = $response
   $$create_body = $response["body"]
-  $workspace_href = $$create_body["data"]["links"]["self"]
-  $workspace_id = $$create_body["data"]["id"]
+
+  if to_s($response["code"]) =~ /20[0-9]/
+    $workspace_href = $$create_body["data"]["links"]["self"]
+    $workspace_id = $$create_body["data"]["id"]
+  else
+    raise to_s($$create_body)
+  end
 end
 
 define defn_delete_workspace($tf_cat_token, $base_url, $name) return $response do
