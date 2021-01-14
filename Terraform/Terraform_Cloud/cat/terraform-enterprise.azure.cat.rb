@@ -92,11 +92,11 @@ define defn_create_workspace($tf_cat_token,$base_url,$tf_version,@deployment) re
         "attributes": {
           "name": @deployment.name,
           "terraform-version": $tf_version,
-          "working-directory": "/azure",
+          "working-directory": "Terraform/Terraform_Cloud/azure",
           "vcs-repo": {
-            "identifier": "rs-services/tf-cloud",
-            "display-identifier": "rs-services/tf-cloud",
-            "oauth-token-id": "ot-JjG8EZii7kvFWtUr",
+            "identifier": "flexera/self-service-assets",
+            "display-identifier": "flexera/self-service-assets",
+            "oauth-token-id": "ot-y778mKXqYLHfRrHh",
             "branch": "",
             "default-branch": true,
             "ingress-submodules": true,
@@ -201,24 +201,28 @@ define defn_create_runs($param_workspace_id,$is_destroy) return $build_response,
   )
   call sys_log.detail($build_response)
   $cost_estimate = $build_response["body"]["data"]["relationships"]["cost-estimate"]
-  $cost_estimate_id = $cost_estimate["data"]["id"]
-  $cost_estimate_href = $cost_estimate["links"]["related"]
-  call sys_log.detail(join(["Cost Estimate Id: ", $cost_estimate_id, " Href: ", $cost_estimate_href]))
-  $status = "pending"
-  $cost_estimate_response = ""
-  while $status != "finished" do
-    sleep(20)
-    $cost_estimate_response = http_get(
-      headers: {
-        "Authorization": join(["Bearer ", $tf_cat_token]),
-        "Content-Type": "application/vnd.api+json"
-      },
-      url: join(["https://app.terraform.io", $cost_estimate_href])
-    )
-    call sys_log.detail($cost_estimate_response)
-    $status = $cost_estimate_response["body"]["data"]["attributes"]["status"]
+  if !equals?($cost_estimate, null)
+    $cost_estimate_id = $cost_estimate["data"]["id"]
+    $cost_estimate_href = $cost_estimate["links"]["related"]
+    call sys_log.detail(join(["Cost Estimate Id: ", $cost_estimate_id, " Href: ", $cost_estimate_href]))
+    $status = "pending"
+    $cost_estimate_response = ""
+    while $status != "finished" do
+      sleep(20)
+      $cost_estimate_response = http_get(
+        headers: {
+          "Authorization": join(["Bearer ", $tf_cat_token]),
+          "Content-Type": "application/vnd.api+json"
+        },
+        url: join(["https://app.terraform.io", $cost_estimate_href])
+      )
+      call sys_log.detail($cost_estimate_response)
+      $status = $cost_estimate_response["body"]["data"]["attributes"]["status"]
+    end
+    $response_cost_estimate = $cost_estimate_response["body"]["data"]["attributes"]["proposed-monthly-cost"]
+  else
+    $response_cost_estimate = "Upgrade Terraform Cloud to `Team & Governance` for this feature"
   end
-  $response_cost_estimate = $cost_estimate_response["body"]["data"]["attributes"]["proposed-monthly-cost"]
   # Wait for run completion
   $run_status = "pending"
   $run_href = $build_response["body"]["data"]["links"]["self"]
