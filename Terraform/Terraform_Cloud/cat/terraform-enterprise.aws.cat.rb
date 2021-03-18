@@ -9,6 +9,13 @@ parameter "param_hostname" do
   default "server1"
 end
 
+parameter "param_business_unit" do
+  label "Business Unit"
+  type "string"
+  allowed_values "Sales", "Engineering"
+  default "Sales"
+end
+
 parameter "param_workspace_id" do
   label "Workspace Id"
   type "string"
@@ -29,6 +36,14 @@ output "output_workspace_href" do
   description "Workspace href"
 end
 
+output "output_workspace_url" do
+  label "Workspace href"
+  category "Terraform"
+  default_value $workspace_url
+  description "Workspace href"
+end
+
+
 output "output_cost_estimate" do
   label "Cost Estimate"
   category "Cost"
@@ -39,7 +54,8 @@ operation "launch" do
   definition "defn_launch"
   output_mappings do {
     $output_workspace_id => $workspace_id,
-    $output_workspace_href => $workspace_href
+    $output_workspace_href => $workspace_href,
+    $output_workspace_url => $workspace_url
   } end
 end
 
@@ -54,7 +70,7 @@ operation "terminate" do
   definition "defn_terminate"
 end
 
-define defn_launch($param_hostname) return $workspace_href, $workspace_id do
+define defn_launch($param_hostname, $param_business_unit) return $workspace_href, $workspace_id, $workspace_url do
   $tf_cat_token = cred("TF_CAT_TOKEN")
   $base_url = "https://app.terraform.io/api/v2"
 
@@ -63,6 +79,8 @@ define defn_launch($param_hostname) return $workspace_href, $workspace_id do
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "AWS_ACCESS_KEY_ID", cred("AWS_ACCESS_KEY_ID"),"AWS ACCESS KEY", "env", false, false)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "AWS_SECRET_ACCESS_KEY", cred("AWS_SECRET_ACCESS_KEY"),"AWS_SECRET_ACCESS_KEY", "env", false, true)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "hostname", $param_hostname,"hostname of server", "terraform", false, false)
+  call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "tag_business_unit", $param_business_unit,"Business Unit of server", "terraform", false, false)
+  $workspace_url = join(["https://app.terraform.io/app/Flexera-SE/workspaces/" @@deployment.name, "/runs"])
 end
 
 define defn_terminate() return $terminate_response do
@@ -91,7 +109,7 @@ define defn_create_workspace($tf_cat_token,$base_url,$tf_version,@deployment) re
             "identifier": "flexera/self-service-assets",
             "display-identifier": "flexera/self-service-assets",
             "oauth-token-id": "ot-y778mKXqYLHfRrHh",
-            "branch": "Terraform-Cloud",
+            "branch": "master",
             "default-branch": true,
             "ingress-submodules": true,
             "file-triggers-enabled": false
