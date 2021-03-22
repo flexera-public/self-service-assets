@@ -178,6 +178,7 @@ define defn_stop() do
   call defn_get_workspace_id() retrieve $workspace_id
   call defn_get_workspace_outputs($workspace_id) retrieve $outputs
   $instance_id = $outputs["instance_resource_id"]
+  call sys_log.detail([$outputs,$instance_id],"-")
   call rs_aws_compute.start_debugging()
   sub on_error: rs_aws_compute.stop_debugging() do
     @instance = rs_aws_compute.instances.show(instance_id: $instance_id)

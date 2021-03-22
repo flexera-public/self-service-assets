@@ -809,7 +809,7 @@ plugin "rs_aws_compute" do
 
     action "show" do
       verb "POST"
-      path "/?Action=DescribeInstances&InstanceId.1=$instance_id"
+      path "/?Action=DescribeInstances"
       output_path "//DescribeInstancesResponse/reservationSet/item/instancesSet/item"
 
       field "instance_id" do
