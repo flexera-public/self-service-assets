@@ -1,7 +1,15 @@
-name "Terraform Enterprise AWS CAT"
+# Deploy to Amazon
+# Parameter based on cheapest region
+
+# tag CostCenter=1234
+# tag BusinessUnit=SRE
+# Billing Center -> CloudCoE
+# Billing Center -> Demo
+name "FlexeraOne Sales Demo"
 rs_ca_ver 20161221
-short_description "Terraform Enterprise CAT"
+short_description "FlexeraOne Sales Demo"
 import 'sys_log'
+import "plugin/rs_aws_compute"
 
 # Pretty inclusive set of permissions.
 # TODO: group things down into smaller sets perhaps so admin isn't always needed, etc.
@@ -13,6 +21,12 @@ end
 permission "pft_sensitive_views" do
   resources "rs_cm.credentials" # Currently these actions are not support for instance resources, "rs_cm.instances"
   actions "rs_cm.index_sensitive", "rs_cm.show_sensitive"
+end
+
+parameter 'param_region' do
+  type 'string'
+  label 'AWS Region'
+  default "us-east-2"
 end
 
 parameter "param_hostname" do
@@ -133,14 +147,14 @@ mapping "map_instancetype" do {
   }
 } end
 
-define defn_launch($param_hostname, $param_business_unit, $param_env, $param_instancetype, $param_branch, $map_instancetype) return $workspace_href, $workspace_id, $workspace_url do
+define defn_launch($param_hostname, $param_business_unit, $param_env, $param_instancetype, $param_branch, $map_instancetype, $param_region) return $workspace_href, $workspace_id, $workspace_url do
   $tf_cat_token = cred("TF_CAT_TOKEN")
   $base_url = "https://app.terraform.io/api/v2"
   $instance_type =  map($map_instancetype, $param_instancetype, "AWS")
 
   call defn_create_workspace($tf_cat_token,$base_url,"0.12.29",@@deployment,$param_branch) retrieve $workspace_href, $workspace_id
   call sys_log.detail(join(["Workspace ID: ", $workspace_id, ", HREF: ", $workspace_href]))
-  call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "AWS_DEFAULT_REGION","us-east-2","AWS DEFAULT REGION", "env", false, false)
+  call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "AWS_DEFAULT_REGION",$param_region,"AWS DEFAULT REGION", "env", false, false)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "AWS_ACCESS_KEY_ID", cred("AWS_ACCESS_KEY_ID"),"AWS ACCESS KEY", "env", false, false)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "AWS_SECRET_ACCESS_KEY", cred("AWS_SECRET_ACCESS_KEY"),"AWS_SECRET_ACCESS_KEY", "env", false, true)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "hostname", $param_hostname,"hostname of server", "terraform", false, false)
@@ -151,6 +165,8 @@ define defn_launch($param_hostname, $param_business_unit, $param_env, $param_ins
 end
 
 define defn_stop() do
+  call sys_log(@@execution)
+  call sys_log.detail(@@execution.outputs)
 end
 
 define defn_start() do
@@ -333,4 +349,34 @@ define defn_create_runs($param_workspace_id,$is_destroy) return $build_response,
     call sys_log.detail($run_response)
     $run_status = $run_response["body"]["data"]["attributes"]["status"]
   end
+end
+
+define get_workspace_outputs($param_workspace_id) return $outputs do
+  $tf_cat_token = cred("TF_CAT_TOKEN")
+  $base_url = "https://app.terraform.io/api/v2"
+  $build_response = http_post(
+    headers: {
+      "Authorization": join(["Bearer ", $tf_cat_token]),
+      "Content-Type": "application/vnd.api+json",
+      "content-type": "application/vnd.api+json"
+    },
+    body: {
+      "data": {
+        "attributes": {
+          "auto-apply": true,
+          "is-destroy": $is_destroy
+        },
+        "type":"runs",
+        "relationships": {
+          "workspace": {
+            "data": {
+              "type": "workspaces",
+              "id": $param_workspace_id
+            }
+          }
+        }
+      }
+    },
+    url: join([$base_url, "/runs"])
+  )
 end

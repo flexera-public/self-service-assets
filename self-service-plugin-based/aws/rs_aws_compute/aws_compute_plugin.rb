@@ -56,15 +56,15 @@ plugin "rs_aws_compute" do
     description 'The maximum results count for each page of AWS data received.'
   end
 
-    endpoint do
-        default_host 'ec2.$region.amazonaws.com'
-        default_scheme 'https'
-        path '/'
-        query do {
-        'Version' => '2016-11-15'
-        } end
-        request_content_type 'application/x-www-form-urlencoded; charset=utf-8'
-    end
+  endpoint do
+      default_host 'ec2.$region.amazonaws.com'
+      default_scheme 'https'
+      path '/'
+      query do {
+      'Version' => '2016-11-15'
+      } end
+      request_content_type 'application/x-www-form-urlencoded; charset=utf-8'
+  end
 
   type "vpc" do
     # HREF is set to the correct template in the provision definition due to a lack of usable fields in the response to build the href
@@ -89,11 +89,12 @@ plugin "rs_aws_compute" do
       type      "string"
       location  "query"
     end
-	field "page_size" do
+
+    field "page_size" do
       type 'string'
-        location 'query'
-        alias_for 'MaxResults'
-      end
+      location 'query'
+      alias_for 'MaxResults'
+    end
 
     output 'id' do
      body_path 'vpcId'
@@ -821,8 +822,8 @@ plugin "rs_aws_compute" do
       verb "POST"
       path "/?Action=DescribeInstances"
       output_path "//DescribeInstancesResponse/reservationSet/item/instancesSet/item"
-	  field "page_size" do
-          type 'string'
+      field "page_size" do
+        type 'string'
         location 'query'
         alias_for 'MaxResults'
       end
@@ -862,7 +863,7 @@ plugin "rs_aws_compute" do
     end
 
     output 'region' do
-	 body_path 'placement.availabilityZone'
+     body_path 'placement.availabilityZone'
     end
 
     output 'state' do

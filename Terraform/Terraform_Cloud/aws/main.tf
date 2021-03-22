@@ -15,7 +15,7 @@ variable "instances_number" {
 }
 
 variable "instance_type" {
-  default = "c5.large"
+  default = "t3.medium"
 }
 
 variable "hostname" {
