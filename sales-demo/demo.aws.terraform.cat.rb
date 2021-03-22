@@ -55,18 +55,18 @@ parameter "param_env" do
   label "Environment"
   type "string"
   allowed_values "Dev", "Prod"
+  default "Dev"
 end
 
 parameter "param_branch" do
   label "Branch Name"
   type "string"
-  default "master"
+  default "common-definitions"
 end
 
 parameter "param_workspace_id" do
   label "Workspace Id"
   type "string"
-  operations "queue_build"
 end
 
 output "output_workspace_id" do
@@ -88,6 +88,11 @@ output "output_workspace_url" do
   category "Terraform"
   default_value $workspace_url
   description "Workspace href"
+end
+
+output "output_terraform_outputs" do
+  label "Terraform Outputs"
+  category "Terraform"
 end
 
 output "output_cost_estimate" do
@@ -123,6 +128,13 @@ operation "get_costs" do
   definition "defn_get_cost_data"
   output_mappings do {
     $output_current_cost => "1"
+  } end
+end
+
+operation "get_workspace_outputs" do
+  definition "defn_get_workspace_outputs"
+  output_mappings do {
+    $output_terraform_outputs => $outputs
   } end
 end
 
@@ -165,8 +177,13 @@ define defn_launch($param_hostname, $param_business_unit, $param_env, $param_ins
 end
 
 define defn_stop() do
-  call sys_log(@@execution)
-  call sys_log.detail(@@execution.outputs)
+  @execution = @@execution.show(view: "expanded")
+  $execution = to_object(@execution)
+  call sys_log.detail($execution["details"][0]["outputs"])
+  $outputs = $execution["details"][0]["outputs"]
+  $output_workspace_id = first(select($outputs, { "name": "output_workspace_id" }))
+  call sys_log.detail($output_workspace_id)
+  call sys_log.detail($output_workspace_id["value"]["value"])
 end
 
 define defn_start() do
@@ -176,6 +193,14 @@ define defn_terminate() return $terminate_response do
   $tf_cat_token = cred("TF_CAT_TOKEN")
   $base_url = "https://app.terraform.io/api/v2"
   call defn_delete_workspace($tf_cat_token,$base_url,@@deployment.name) retrieve $terminate_response
+end
+
+define defn_get_workspace_id() return $workspace_id do
+  @execution = @@execution.show(view: "expanded")
+  $execution = to_object(@execution)
+  $outputs = $execution["details"][0]["outputs"]
+  $output_workspace_id = first(select($outputs, { "name": "output_workspace_id" }))
+  $workspace_id = [$output_workspace_id["value"]["value"]]
 end
 
 define defn_queue_build($param_workspace_id) return $build_response,$response_cost_estimate do
@@ -351,32 +376,28 @@ define defn_create_runs($param_workspace_id,$is_destroy) return $build_response,
   end
 end
 
-define get_workspace_outputs($param_workspace_id) return $outputs do
+define defn_get_workspace_outputs($param_workspace_id) return $outputs do
   $tf_cat_token = cred("TF_CAT_TOKEN")
-  $base_url = "https://app.terraform.io/api/v2"
-  $build_response = http_post(
+  $base_url = "https://app.terraform.io/api/v2/workspaces/"
+  $url = join([$base_url,$param_workspace_id,"/current-state-version?include=outputs"])
+  call sys_log.detail($url)
+  $output_response = http_get(
     headers: {
       "Authorization": join(["Bearer ", $tf_cat_token]),
       "Content-Type": "application/vnd.api+json",
       "content-type": "application/vnd.api+json"
     },
-    body: {
-      "data": {
-        "attributes": {
-          "auto-apply": true,
-          "is-destroy": $is_destroy
-        },
-        "type":"runs",
-        "relationships": {
-          "workspace": {
-            "data": {
-              "type": "workspaces",
-              "id": $param_workspace_id
-            }
-          }
-        }
-      }
-    },
-    url: join([$base_url, "/runs"])
+    url: $url
   )
+  call sys_log.detail($output_response)
+  $outputs_array = $output_response["body"]["included"]
+  call sys_log.detail($outputs_array)
+  $Houtputs = {}
+  foreach $item in $outputs_array do
+    $key = $item["attributes"]["name"]
+    $value = $item["attributes"]["value"]
+    call sys_log.detail(join([$item,$key,$value],"\n"))
+    $Houtputs[$key] = $value
+  end
+  $outputs = to_s($Houtputs)
 end
