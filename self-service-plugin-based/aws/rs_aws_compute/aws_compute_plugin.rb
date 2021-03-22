@@ -809,7 +809,7 @@ plugin "rs_aws_compute" do
 
     action "show" do
       verb "POST"
-      path "/?Action=DescribeInstances"
+      path "/?Action=DescribeInstances&InstanceId.1=$instance_id"
       output_path "//DescribeInstancesResponse/reservationSet/item/instancesSet/item"
 
       field "instance_id" do
@@ -828,6 +828,12 @@ plugin "rs_aws_compute" do
         alias_for 'MaxResults'
       end
      pagination $aws_pagination
+    end
+
+    action "stop" do
+      verb "POST"
+      path "/?Action=StopInstances&InstanceId.1=$instanceId"
+      output_path "//StopInstancesResponse/instancesSet/item"
     end
 
     action "create_image" do
@@ -853,7 +859,7 @@ plugin "rs_aws_compute" do
       type "images"
     end
 
-    output "ipAddress","vpcId","imageId","privateDnsName"
+    output "ipAddress","vpcId","imageId","privateDnsName","instanceId"
 
     output 'id' do
      body_path 'instanceId'

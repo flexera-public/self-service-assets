@@ -112,7 +112,9 @@ operation "launch" do
     $output_workspace_id => $workspace_id,
     $output_workspace_href => $workspace_href,
     $output_workspace_url => $workspace_url,
-    $output_current_cost => "0"
+    $output_current_cost => "0",
+    $output_cost_estimate => $response_cost_estimate,
+    $output_terraform_outputs => $tf_outputs
   } end
 end
 
@@ -128,13 +130,6 @@ operation "get_costs" do
   definition "defn_get_cost_data"
   output_mappings do {
     $output_current_cost => "1"
-  } end
-end
-
-operation "get_workspace_outputs" do
-  definition "defn_get_workspace_outputs"
-  output_mappings do {
-    $output_terraform_outputs => $outputs
   } end
 end
 
@@ -159,7 +154,7 @@ mapping "map_instancetype" do {
   }
 } end
 
-define defn_launch($param_hostname, $param_business_unit, $param_env, $param_instancetype, $param_branch, $map_instancetype, $param_region) return $workspace_href, $workspace_id, $workspace_url do
+define defn_launch($param_hostname, $param_business_unit, $param_env, $param_instancetype, $param_branch, $map_instancetype, $param_region) return $workspace_href, $workspace_id, $workspace_url, $response_cost_estimate, $tf_outputs do
   $tf_cat_token = cred("TF_CAT_TOKEN")
   $base_url = "https://app.terraform.io/api/v2"
   $instance_type =  map($map_instancetype, $param_instancetype, "AWS")
@@ -174,16 +169,21 @@ define defn_launch($param_hostname, $param_business_unit, $param_env, $param_ins
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "tag_env", $param_env,"Environment of server", "terraform", false, false)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "instance_type",$instance_type,"Instance Type of server", "terraform", false, false)
   $workspace_url = join(["https://app.terraform.io/app/Flexera-SE/workspaces/", @@deployment.name, "/runs"])
+  call defn_queue_build($workspace_id) retrieve $build_response,$response_cost_estimate
+  call defn_get_workspace_outputs($workspace_id) retrieve $outputs
+  $tf_outputs = to_s($outputs)
 end
 
 define defn_stop() do
-  @execution = @@execution.show(view: "expanded")
-  $execution = to_object(@execution)
-  call sys_log.detail($execution["details"][0]["outputs"])
-  $outputs = $execution["details"][0]["outputs"]
-  $output_workspace_id = first(select($outputs, { "name": "output_workspace_id" }))
-  call sys_log.detail($output_workspace_id)
-  call sys_log.detail($output_workspace_id["value"]["value"])
+  call defn_get_workspace_id() retrieve $workspace_id
+  call defn_get_workspace_outputs($workspace_id) retrieve $outputs
+  $instance_id = $outputs["instance_resource_id"]
+  call rs_aws_compute.start_debugging()
+  sub on_error: rs_aws_compute.stop_debugging() do
+    @instance = rs_aws_compute.instances.show(instance_id: $instance_id)
+    @instance.stop()
+  end
+  call rs_aws_compute.stop_debugging()
 end
 
 define defn_start() do
@@ -200,7 +200,7 @@ define defn_get_workspace_id() return $workspace_id do
   $execution = to_object(@execution)
   $outputs = $execution["details"][0]["outputs"]
   $output_workspace_id = first(select($outputs, { "name": "output_workspace_id" }))
-  $workspace_id = [$output_workspace_id["value"]["value"]]
+  $workspace_id = $output_workspace_id["value"]["value"]
 end
 
 define defn_queue_build($param_workspace_id) return $build_response,$response_cost_estimate do
@@ -362,8 +362,8 @@ define defn_create_runs($param_workspace_id,$is_destroy) return $build_response,
   $run_status = "pending"
   $run_href = $build_response["body"]["data"]["links"]["self"]
   call sys_log.detail($run_href)
-  while $run_status =~ "^(applied|errored|discarded)" do
-    sleep(20)
+  while $run_status !~ "^(applied|errored|discarded)" do
+    sleep(5)
     $run_response = http_get(
       headers: {
         "Authorization": join(["Bearer ", $tf_cat_token]),
@@ -391,13 +391,10 @@ define defn_get_workspace_outputs($param_workspace_id) return $outputs do
   )
   call sys_log.detail($output_response)
   $outputs_array = $output_response["body"]["included"]
-  call sys_log.detail($outputs_array)
-  $Houtputs = {}
+  $outputs = {}
   foreach $item in $outputs_array do
     $key = $item["attributes"]["name"]
     $value = $item["attributes"]["value"]
-    call sys_log.detail(join([$item,$key,$value],"\n"))
-    $Houtputs[$key] = $value
+    $outputs[$key] = $value
   end
-  $outputs = to_s($Houtputs)
 end
