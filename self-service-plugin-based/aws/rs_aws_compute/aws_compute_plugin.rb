@@ -45,7 +45,6 @@ plugin "rs_aws_compute" do
   parameter 'region' do
     type 'string'
     label 'AWS Region'
-    default 'us-east-1'
     description 'The region in which the resources are created'
   end
 
@@ -836,6 +835,12 @@ plugin "rs_aws_compute" do
       output_path "//StopInstancesResponse/instancesSet/item"
     end
 
+    action "start" do
+      verb "POST"
+      path "/?Action=StartInstances&InstanceId.1=$instanceId"
+      output_path "//StartInstancesResponse/instancesSet/item"
+    end
+
     action "create_image" do
       verb "POST"
       path "/?Action=CreateImage&InstanceId=$instanceId"
@@ -993,6 +998,9 @@ end
 
 resource_pool "compute_pool" do
   plugin $rs_aws_compute
+  parameter_values do
+    region $param_region
+  end
   auth "key", type: "aws" do
     version     4
     service    'ec2'

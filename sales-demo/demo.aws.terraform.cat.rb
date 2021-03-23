@@ -174,11 +174,12 @@ define defn_launch($param_hostname, $param_business_unit, $param_env, $param_ins
   $tf_outputs = to_s($outputs)
 end
 
-define defn_stop() do
+define defn_stop($param_region) do
   call defn_get_workspace_id() retrieve $workspace_id
   call defn_get_workspace_outputs($workspace_id) retrieve $outputs
   $instance_id = $outputs["instance_resource_id"]
-  call sys_log.detail([$outputs,$instance_id],"-")
+  $str = join([$outputs,$instance_id],"-")
+  call sys_log.detail($str)
   call rs_aws_compute.start_debugging()
   sub on_error: rs_aws_compute.stop_debugging() do
     @instance = rs_aws_compute.instances.show(instance_id: $instance_id)
@@ -187,7 +188,18 @@ define defn_stop() do
   call rs_aws_compute.stop_debugging()
 end
 
-define defn_start() do
+define defn_start($param_region) do
+  call defn_get_workspace_id() retrieve $workspace_id
+  call defn_get_workspace_outputs($workspace_id) retrieve $outputs
+  $instance_id = $outputs["instance_resource_id"]
+  $str = join([$outputs,$instance_id],"-")
+  call sys_log.detail($str)
+  call rs_aws_compute.start_debugging()
+  sub on_error: rs_aws_compute.stop_debugging() do
+    @instance = rs_aws_compute.instances.show(instance_id: $instance_id)
+    @instance.start()
+  end
+  call rs_aws_compute.stop_debugging()
 end
 
 define defn_terminate() return $terminate_response do
