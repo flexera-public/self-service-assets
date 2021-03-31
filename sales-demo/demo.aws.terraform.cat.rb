@@ -69,25 +69,11 @@ parameter "param_workspace_id" do
   type "string"
 end
 
-output "output_workspace_id" do
-  label "Workspace Id"
-  category "Terraform"
-  default_value $workspace_id
-  description "Workspace Id"
-end
-
-output "output_workspace_href" do
-  label "Workspace href"
-  category "Terraform"
-  default_value $workspace_href
-  description "Workspace href"
-end
-
 output "output_workspace_url" do
-  label "Workspace href"
+  label "Workspace"
   category "Terraform"
   default_value $workspace_url
-  description "Workspace href"
+  description "Workspace"
 end
 
 output "output_terraform_outputs" do
@@ -96,14 +82,38 @@ output "output_terraform_outputs" do
 end
 
 output "output_cost_estimate" do
-  label "Cost Estimate"
+  label "Cost Estimate from Terraform"
   category "Cost"
   description "Cost estimate from Terraform"
 end
 
 output "output_current_cost" do
-  label "Estimated Current Cost"
+  label "Estimated Total Cost"
   category "Cost"
+end
+
+output "output_last_month_cost" do
+  label "Estimated Last Month Cost"
+  category "Cost"
+end
+
+output "output_this_month_cost" do
+  label "Estimated This Month Cost"
+  category "Cost"
+end
+
+output "output_workspace_id" do
+  label "Workspace Id"
+  category "Debug"
+  default_value $workspace_id
+  description "Workspace Id"
+end
+
+output "output_workspace_href" do
+  label "Workspace href"
+  category "Debug"
+  default_value $workspace_href
+  description "Workspace href"
 end
 
 operation "launch" do
@@ -129,7 +139,9 @@ operation "get_costs" do
   label "Get Costs"
   definition "defn_get_cost_data"
   output_mappings do {
-    $output_current_cost => "1"
+    $output_current_cost => $cost,
+    $output_last_month_cost => $last_month_cost,
+    $output_this_month_cost => $this_month_cost
   } end
 end
 
@@ -168,10 +180,19 @@ define defn_launch($param_hostname, $param_business_unit, $param_env, $param_ins
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "tag_business_unit", $param_business_unit,"Business Unit of server", "terraform", false, false)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "tag_env", $param_env,"Environment of server", "terraform", false, false)
   call defn_create_workspace_var($tf_cat_token, $base_url, $workspace_id, "instance_type",$instance_type,"Instance Type of server", "terraform", false, false)
-  $workspace_url = join(["https://app.terraform.io/app/Flexera-SE/workspaces/", @@deployment.name, "/runs"])
+  $workspace_url = join(["https://app.terraform.io/app/Flexera-SE/workspaces/", @@deployment.name])
   call defn_queue_build($workspace_id) retrieve $build_response,$response_cost_estimate
   call defn_get_workspace_outputs($workspace_id) retrieve $outputs
   $tf_outputs = to_s($outputs)
+  $time = now() + (60*2)
+  rs_ss.scheduled_actions.create(
+                                  execution_id:       @@execution.id,
+                                  name:               "Checking for Cost Data",
+                                  action:             "run",
+                                  operation:          { "name": "get_costs" },
+                                  first_occurrence:   $time,
+                                  recurrence:         "FREQ=HOURLY;INTERVAL=1"
+                                )
 end
 
 define defn_stop($param_region) do
@@ -220,8 +241,118 @@ define defn_queue_build($param_workspace_id) return $build_response,$response_co
   call defn_create_runs($param_workspace_id, false) retrieve $build_response,$response_cost_estimate
 end
 
-define defn_get_cost_data() return $cost do
+define defn_get_cost_data($map_instancetype, $param_instancetype, $param_region) return $response, $price, $cost, @execution, $execution, $timestamps, $difference, $difference_in_hours, $last_month_cost, $this_month_cost, $resource_id,$outputs,$output_terraform_outputs,$output_value do
+  @execution = @@execution.show(view: "expanded")
+  $execution = to_object(@execution)
+  $execution_details = first($execution["details"])
+  $outputs = $execution_details["outputs"]
+  $output_terraform_outputs = first(select($outputs, { "name": "output_terraform_outputs" }))
+  $output_value = $output_terraform_outputs["value"]["value"]
+  $resource_id = from_json($output_value)["instance_resource_id"]
+  $project = $execution_details["project"]["id"]
+  $org_id = $execution_details["project"]["org_id"]
+  if $org_id == 6
+    $org_id = 78
+  end
+  $headers = {"Api-Version": "1.0"}
+  $response = http_get({
+     headers: $headers,
+     url: join(["https://optima.rightscale.com/analytics/orgs/",$org_id,"/billing_centers?view=allocation_table"])
+  })
+  $billing_centers = []
+  foreach $i in $response["body"] do
+   if !contains?(keys($i), ["parent_id"])
+     $billing_centers << $i["id"]
+   end
+  end
+  $timestamps = $execution_details["timestamps"]
+  $now = now()
+  $launched_at = to_d($timestamps["launched_at"])
+  $format_string = "%Y-%m"
+  $launched_at_monthly = strftime($launched_at, $format_string)
+  $now_monthly = strftime($now,$format_string)
+  call sys_log.detail(join(["getting cost data for ", $launched_at_monthly, "-> ", $now_monthly]))
+  call get_resource_optima_data($headers,$billing_centers,$resource_id,$launched_at_monthly,$now_monthly,$org_id) retrieve $cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
+  $month = to_n(strftime($now,"%-m"))
+  $year = strftime($now,"%Y")
+  $last_month = $month - 1
+  if $last_month <= 9
+    $last_month_padded = join([$year,"-0",to_s($last_month)])
+  else
+    $last_month_padded = join([$year, "-", to_s($last_month)])
+  end
+  call sys_log.detail(join(["getting cost data for ", $last_month_padded, "-> ", $last_month_padded]))
+  call get_resource_optima_data($headers,$billingcenters,$resource_id,$last_month_padded,$last_month_padded,$org_id) retrieve $last_month_cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
+  call sys_log.detail(join(["getting cost data for ", $now_monthly, "-> ", $now_monthly]))
+  call get_resource_optima_data($headers,$billing_centers,$resource_id,$now_monthly,$now_monthly,$org_id) retrieve $this_month_cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
+  if $cost <= 0
+    $difference = $now -$launched_at
+    $difference_in_hours = ($difference/60)/60
+    $instance_type =  map($map_instancetype, $param_instancetype, "AWS")
+    $response = http_post(
+      headers:{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Connection': 'keep-alive',
+        'DNT': '1',
+        'Origin': 'http://34.121.248.201'
+      },
+      body: { "query": "query { products( filter: { vendorName: \"aws\", service: \"AmazonEC2\", productFamily: \"Compute Instance\", region: \""+$param_region+"\", attributeFilters: [   { key: \"instanceType\", value: \""+$instance_type+"\" },   { key: \"tenancy\", value: \"Shared\" },   { key: \"operatingSystem\", value: \"Linux\" },   { key: \"capacitystatus\", value: \"Used\" },   { key: \"preInstalledSw\", value: \"NA\" } ]},) {prices( filter: {   purchaseOption: \"on_demand\" },) { USD }}}"},
+      url: "http://34.121.248.201/graphql"
+    )
+    $price = $response["body"]["data"]["products"][0]["prices"][0]["USD"]
+
+    if $difference_in_hours < 1
+      $cost = $price
+    else
+      $cost = to_n($price) * $difference_in_hours
+    end
+  end
+  $cost = to_s($cost)
+  $this_month_cost = to_s($this_month_cost)
+  $last_month_cost = to_s($last_month_cost)
 end
+
+define get_resource_optima_data($headers,$billing_centers,$resource_id,$start_at,$end_at,$org_id) return $cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown do
+  $query = {
+   "billing_center_ids" => [],
+   "dimensions"=> [
+     "resource_id",
+     "billing_center_id"
+   ],
+   "end_at" => $end_at,
+   "filter" => {
+     "dimension"=> "resource_id",
+     "type" => "equal",
+     "value" => $resource_id
+   },
+   "granularity" => "month",
+   "limit" => 100000,
+   "metrics" => [
+     "cost_amortized_blended_adj"
+   ],
+   "start_at" => $start_at
+  }
+  $query["billing_center_ids"] = $billing_centers
+  $analysis_response = {}
+  call start_debugging()
+  sub on_error: stop_debugging() do
+    $analysis_response = http_post(
+      headers: $headers,
+      url: "https://optima.rightscale.com/bill-analysis/orgs/78/costs/select",
+      body: $query
+    )
+  end
+  call stop_debugging()
+  $billing_center_id = first($analysis_response["body"]["rows"])["dimensions"]["billing_center_id"]
+  $billing_center_name = first(select($response["body"], {"id": $billing_center_id}))["name"]
+  $billing_center_url = join(["https://analytics.rightscale.com/orgs/",$org_id,"/billing/billing-centers/", $billing_center_id, "/dashboard/default"])
+  $bc_markdown=join(["[",$billing_center_name,"](",$billing_center_url,")"])
+  $cost = 0
+  foreach $row in $analysis_response["body"]["rows"] do
+    $cost = $cost + to_n($row["metrics"]["cost_amortized_blended_adj"])
+  end
+ end
 
 define defn_create_workspace($tf_cat_token,$base_url,$tf_version,@deployment, $param_branch) return $workspace_href, $workspace_id do
   $workspace_href = ""
