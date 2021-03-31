@@ -81,6 +81,11 @@ output "output_terraform_outputs" do
   category "Terraform"
 end
 
+output "output_billing_center" do
+  label "Billing Center"
+  category "Cost"
+end
+
 output "output_cost_estimate" do
   label "Cost Estimate from Terraform"
   category "Cost"
@@ -141,7 +146,8 @@ operation "get_costs" do
   output_mappings do {
     $output_current_cost => $cost,
     $output_last_month_cost => $last_month_cost,
-    $output_this_month_cost => $this_month_cost
+    $output_this_month_cost => $this_month_cost,
+    $output_billing_center => $bc_markdown
   } end
 end
 
@@ -241,7 +247,7 @@ define defn_queue_build($param_workspace_id) return $build_response,$response_co
   call defn_create_runs($param_workspace_id, false) retrieve $build_response,$response_cost_estimate
 end
 
-define defn_get_cost_data($map_instancetype, $param_instancetype, $param_region) return $response, $price, $cost, @execution, $execution, $timestamps, $difference, $difference_in_hours, $last_month_cost, $this_month_cost, $resource_id,$outputs,$output_terraform_outputs,$output_value do
+define defn_get_cost_data($map_instancetype, $param_instancetype, $param_region) return $response, $price, $cost, @execution, $execution, $difference_in_hours, $last_month_cost, $this_month_cost, $bc_markdown do
   @execution = @@execution.show(view: "expanded")
   $execution = to_object(@execution)
   $execution_details = first($execution["details"])
@@ -271,20 +277,61 @@ define defn_get_cost_data($map_instancetype, $param_instancetype, $param_region)
   $format_string = "%Y-%m"
   $launched_at_monthly = strftime($launched_at, $format_string)
   $now_monthly = strftime($now,$format_string)
-  call sys_log.detail(join(["getting cost data for ", $launched_at_monthly, "-> ", $now_monthly]))
-  call get_resource_optima_data($headers,$billing_centers,$resource_id,$launched_at_monthly,$now_monthly,$org_id) retrieve $cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
   $month = to_n(strftime($now,"%-m"))
   $year = strftime($now,"%Y")
-  $last_month = $month - 1
-  if $last_month <= 9
-    $last_month_padded = join([$year,"-0",to_s($last_month)])
+  $launched_at_month = to_n(strftime($launched_at,"%-m"))
+
+  if $launched_at_month == $month
+    if $month == 12
+      $next_month = 1
+      $next_year = to_n($year) + 1
+    else
+      $next_month = $month + 1
+      $next_year = $year
+    end
+    $cost_month = $next_month
   else
-    $last_month_padded = join([$year, "-", to_s($last_month)])
+    $next_year = $year
+    $cost_month = $month
   end
-  call sys_log.detail(join(["getting cost data for ", $last_month_padded, "-> ", $last_month_padded]))
-  call get_resource_optima_data($headers,$billingcenters,$resource_id,$last_month_padded,$last_month_padded,$org_id) retrieve $last_month_cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
-  call sys_log.detail(join(["getting cost data for ", $now_monthly, "-> ", $now_monthly]))
-  call get_resource_optima_data($headers,$billing_centers,$resource_id,$now_monthly,$now_monthly,$org_id) retrieve $this_month_cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
+  if $cost_month <= 9
+    $cost_month_padded = join([$next_year,"-0",to_s($cost_month)])
+  else
+    $cost_month_padded = join([$next_year, "-", to_s($cost_month)])
+  end
+
+  call sys_log.detail(join(["getting cost data for ", $launched_at_monthly, "-> ", $cost_month_padded]))
+  call get_resource_optima_data($headers,$billing_centers,$resource_id,$launched_at_monthly,$cost_month_padded,$org_id) retrieve $cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
+
+  if $month == 1
+    $last_month = 12
+    $last_year = to_n($year) - 1
+  else
+    $last_month = $month - 1
+    $last_year = $year
+  end
+  if $last_month <= 9
+    $last_month_padded = join([$last_year,"-0",to_s($last_month)])
+  else
+    $last_month_padded = join([$last_year, "-", to_s($last_month)])
+  end
+  call sys_log.detail(join(["getting cost data for ", $last_month_padded, "-> ", $now_monthly]))
+  call get_resource_optima_data($headers,$billing_centers,$resource_id,$last_month_padded,$now_monthly,$org_id) retrieve $last_month_cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
+
+  if $month == 12
+    $next_month = 1
+    $next_year = to_n($year) + 1
+  else
+    $next_month = $month + 1
+    $next_year = $year
+  end
+  if $next_month <= 9
+    $next_month_padded = join([$next_year,"-0",to_s($next_month)])
+  else
+    $next_month_padded = join([$next_year, "-", to_s($next_month)])
+  end
+  call sys_log.detail(join(["getting cost data for ", $now_monthly, "-> ", $next_month_padded]))
+  call get_resource_optima_data($headers,$billing_centers,$resource_id,$now_monthly,$next_month_padded,$org_id) retrieve $this_month_cost, $billing_center_id, $billing_center_url, $billing_center_name, $bc_markdown
   if $cost <= 0
     $difference = $now -$launched_at
     $difference_in_hours = ($difference/60)/60
@@ -309,7 +356,11 @@ define defn_get_cost_data($map_instancetype, $param_instancetype, $param_region)
     end
   end
   $cost = to_s($cost)
-  $this_month_cost = to_s($this_month_cost)
+  if $this_month_cost == 0
+    $this_month_cost = $cost
+  else
+    $this_month_cost = to_s($this_month_cost)
+  end
   $last_month_cost = to_s($last_month_cost)
 end
 
@@ -335,22 +386,27 @@ define get_resource_optima_data($headers,$billing_centers,$resource_id,$start_at
   }
   $query["billing_center_ids"] = $billing_centers
   $analysis_response = {}
-  call start_debugging()
-  sub on_error: stop_debugging() do
+  call rs_aws_compute.start_debugging()
+  sub on_error: rs_aws_compute.stop_debugging() do
     $analysis_response = http_post(
       headers: $headers,
       url: "https://optima.rightscale.com/bill-analysis/orgs/78/costs/select",
       body: $query
     )
   end
-  call stop_debugging()
-  $billing_center_id = first($analysis_response["body"]["rows"])["dimensions"]["billing_center_id"]
-  $billing_center_name = first(select($response["body"], {"id": $billing_center_id}))["name"]
-  $billing_center_url = join(["https://analytics.rightscale.com/orgs/",$org_id,"/billing/billing-centers/", $billing_center_id, "/dashboard/default"])
-  $bc_markdown=join(["[",$billing_center_name,"](",$billing_center_url,")"])
+  call rs_aws_compute.stop_debugging()
   $cost = 0
-  foreach $row in $analysis_response["body"]["rows"] do
-    $cost = $cost + to_n($row["metrics"]["cost_amortized_blended_adj"])
+  $bc_markdown = "[Optima](https://analytics.rightscale.com/)"
+  $rows = $analysis_response["body"]["rows"]
+  if size($rows) > 0
+    $billing_center_id = first($analysis_response["body"]["rows"])["dimensions"]["billing_center_id"]
+    $billing_center_name = first(select($response["body"], {"id": $billing_center_id}))["name"]
+    $billing_center_url = join(["https://analytics.rightscale.com/orgs/",$org_id,"/billing/billing-centers/", $billing_center_id, "/dashboard/default"])
+    $bc_markdown=join(["[",$billing_center_name,"](",$billing_center_url,")"])
+    $cost = 0
+    foreach $row in $analysis_response["body"]["rows"] do
+      $cost = $cost + to_n($row["metrics"]["cost_amortized_blended_adj"])
+    end
   end
  end
 
