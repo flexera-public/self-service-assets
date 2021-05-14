@@ -8,17 +8,23 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = "us-east-2"
-}
+provider "aws" {}
 
 variable "instances_number" {
   default = 1
 }
 
+variable "instance_type" {
+  default = "t3.medium"
+}
+
 variable "hostname" {
   default = "example-with-ebs"
 }
+
+variable "tag_business_unit" {}
+
+variable "tag_env" {}
 
 ##################################################################
 # Data sources to get VPC, subnet, security group and AMI details
@@ -66,31 +72,32 @@ module "security_group" {
   egress_rules        = ["all-all"]
 }
 
-module "ec2" {
-  source = "terraform-aws-modules/ec2-instance/aws"
-  version = "2.15.0"
-
-  instance_count = var.instances_number
-
-  name                        = var.hostname
+resource "aws_instance" "this_ec2_instance" {
   ami                         = data.aws_ami.amazon_linux.id
-  instance_type               = "c5.large"
+  instance_type               = var.instance_type
   subnet_id                   = tolist(data.aws_subnet_ids.all.ids)[0]
   vpc_security_group_ids      = [module.security_group.this_security_group_id]
   associate_public_ip_address = true
+  tags = {
+    "Name" = var.hostname
+    "BusinessUnit" = var.tag_business_unit
+    "env" = var.tag_env
+  }
 }
 
 resource "aws_volume_attachment" "this_ec2" {
-  count = var.instances_number
-
   device_name = "/dev/sdh"
-  volume_id   = aws_ebs_volume.this[count.index].id
-  instance_id = module.ec2.id[count.index]
+  volume_id   = aws_ebs_volume.this.id
+  instance_id = aws_instance.this_ec2_instance.id
 }
 
 resource "aws_ebs_volume" "this" {
-  count = var.instances_number
-
-  availability_zone = module.ec2.availability_zone[count.index]
-  size              = 1
+  availability_zone = aws_instance.this_ec2_instance.availability_zone
+  size              = 10
+  type       = "gp3"
+  tags = {
+    "Name"         = "${var.hostname}_ec2_volume"
+    "BusinessUnit" = var.tag_business_unit
+    "env"          = var.tag_env
+  }
 }
