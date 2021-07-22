@@ -1,0 +1,527 @@
+name "Self-Service Parameters: Azure: Get Available Subnet(s)"
+rs_pt_ver 20180301
+type "policy"
+short_description "Collects all available subnets in an Azure subscription and populates a package CAT in Self-Service. See the [docs.rightscale.com/policies](https://docs.rightscale.com/policies/) to learn more."
+long_description ""
+severity "low"
+category "Flexera Self-Service"
+info(
+  version: "1.5",
+  provider: "Azure",
+  service: "Virtual Networks",
+  policy_set: ""
+)
+
+###############################################################################
+# Parameters
+###############################################################################
+
+parameter "param_email" do
+  type "list"
+  label "Email addresses of the recipients you wish to notify"
+end
+
+parameter "param_subscription" do
+  type "string"
+  label "Subscription"
+end
+
+parameter "param_included_regions" do
+  type "list"
+  label "Included Regions"
+  default ["centralus","northcentralus","westus","eastus","eastus2","southcentralus","westus2"]
+end
+
+###############################################################################
+# Authentication
+###############################################################################
+
+credentials "azure_auth" do
+  schemes "oauth2"
+  label "Azure"
+  description "Select the Azure Resource Manager Credential from the list."
+  tags "provider=azure_rm"
+end
+
+###############################################################################
+# Pagination
+###############################################################################
+
+pagination "azure_pagination" do
+  get_page_marker do
+    body_path "nextLink"
+  end
+  set_page_marker do
+    uri true
+  end
+end
+
+###############################################################################
+# Datasources
+###############################################################################
+
+datasource "ds_azure_locations" do
+  request do
+    auth $azure_auth
+    pagination $azure_pagination
+    host "management.azure.com"
+    path join(["/subscriptions/", $param_subscription,"/locations"])
+    query "api-version","2020-01-01"
+    header "User-Agent", "RS Policies"
+  end
+  result do
+    encoding "json"
+    collect jmes_path(response, "value[*]") do
+      field "id", jmes_path(col_item,"id")
+      field "name", jmes_path(col_item,"name")
+      field "displayName", jmes_path(col_item,"displayName")
+    end
+  end
+end
+
+datasource "ds_azure_resources" do
+  request do
+    auth $azure_auth
+    pagination $azure_pagination
+    host "management.azure.com"
+    path join(["/subscriptions/", $param_subscription,"/resourcegroups"])
+    query "api-version","2019-10-01"
+    header "User-Agent", "RS Policies"
+  end
+  result do
+    encoding "json"
+    collect jmes_path(response, "value[*]") do
+      field "id", jmes_path(col_item,"id")
+      field "region", jmes_path(col_item,"location")
+      field "name", jmes_path(col_item,"name")
+    end
+  end
+end
+
+datasource "ds_azure_networks" do
+  #iterate $ds_azure_resources
+  request do
+    auth $azure_auth
+    pagination $azure_pagination
+    host "management.azure.com"
+    path join(["/subscriptions/", $param_subscription,"/providers/Microsoft.Network/virtualNetworks"])
+    query "api-version","2020-11-01"
+    header "User-Agent", "RS Policies"
+  end
+  result do
+   encoding "json"
+   collect jmes_path(response, "value[*]") do
+     field "id", jmes_path(col_item,"id")
+     field "region", jmes_path(col_item,"location")
+     field "name", jmes_path(col_item,"name")
+     field "subnets", jmes_path(col_item,"properties.subnets")
+   end
+  end
+end
+
+datasource "ds_subnets" do
+  run_script $js_subnets, $ds_azure_locations, $ds_azure_networks, $param_included_regions
+end
+
+###############################################################################
+# Scripts
+###############################################################################
+
+script "js_subnets", type: "javascript" do
+  parameters "ds_azure_locations", "ds_azure_networks", "param_included_regions"
+  result "results"
+  code <<-EOS
+  var results = {};
+
+  var networks = _.groupBy(ds_azure_networks,'region')
+  console.log("Networks:", networks)
+  _.each(param_included_regions, function(location){
+    console.log("Region: " + location)
+    if ( _.contains(_.keys(networks), location) ){
+      results[location] = []
+      for( x = 0; x <= networks[location].length - 1; x++){
+        for( i = 0; i <= networks[location][x].subnets.length - 1; i++){
+            results[location].push({
+              "name": networks[location][x].subnets[i].name,
+              "id": networks[location][x].subnets[i].id,
+          });
+        }
+      }
+    }
+  })
+
+EOS
+end
+
+###############################################################################
+# Policy
+###############################################################################
+
+policy "policy_azure_resource" do
+  validate $ds_subnets do
+    summary_template "Self-Service Parameters: Azure: Subnet(s) found in {{ len data }} Region(s)"
+    detail_template <<-EOS
+# Azure Subnet(s)
+| Data |
+| ---------- |
+| {{ data }} |
+
+###### Policy Applied in Account: {{ rs_project_name }} (Account ID: {{ rs_project_id }})
+EOS
+  check eq(0,1)
+  escalate $escalate_generate_cat
+  end
+end
+
+###############################################################################
+# Escalations
+###############################################################################
+
+escalation "escalate_generate_cat" do
+  email $param_email
+  run "generate_cat_package", data
+end
+
+###############################################################################
+# Cloud Workflow
+###############################################################################
+
+define generate_cat_package($data) return $data,$item,$cat do
+  $$debug=true
+  $filename = "subnets.rb"
+  $cat_name = "Package: Subnets"
+  $allowed_values = '  allowed_values '
+  $syslog_subject = "Subnet details for Self-Service Policy: "
+  call sys_log(join([$syslog_subject, "Subnet"]),to_s($data))
+  $valstring = ""
+  $allowed_keys = []
+  foreach $key in keys($data) do
+    $allowed_keys << "\"" + to_s($key) + "\""
+    $values = []
+    $valuesId = []
+    foreach $item in $data[$key] do
+      $values << "\""+ $item["id"] +"\""
+    end
+    $valstring = $valstring +"\'" + to_s($key) + "\' => " + join([$values,","]) + "\n"
+  end
+  $allowed_values = $allowed_values + join($allowed_keys,",")
+  $cat = "## Warning: This file is maintained automatically via the RightScale Policy 'Self-Service Parameters: Azure: Get Available Subnet(s)' ##
+## Subnet Details ##
+name 'Package: Subnets'
+rs_ca_ver 20161221
+short_description 'Subnets Details'
+package 'azure/subnets'
+
+parameter 'region' do
+  type 'string'
+  label 'Region'
+  operations 'launch'
+" + $allowed_values +"
+end
+
+parameter 'param_subnet' do
+  type 'string'
+  label 'Subnet'
+  description \"json:{\\\"mapping\\\":\\\"cloud_subnet_info\\\",\\\"key\\\":\\\"subnets\\\",\\\"parameter\\\":\\\"region\\\",\\\"description\\\":\\\"Select the subnet\\\"}\"
+  operations 'launch'
+end
+
+##########
+# Mappings
+##########
+
+mapping 'cloud_subnet_info' do {
+ 'subnets' => {" +
+$valstring
++ "}
+} end
+
+### End ###
+
+"
+
+  call sys_log(join([$syslog_subject, "CAT"]),to_s($cat))
+
+  call find_shard_and_account_number() retrieve $shard,$account
+
+  $ss_headers = {
+    "X_API_VERSION": "1.0",
+    "accept": "application/json"
+  }
+
+  ## Create new compilation job
+  $response = http_post(
+    url: "https://selfservice-" + $shard + ".rightscale.com/compilation_service/v1/projects/" + $account + "/compilation_jobs",
+    headers: $ss_headers,
+    body:{
+      "file_name": $filename,
+      "source_content": $cat
+    }
+  )
+
+  call sys_log(join([$syslog_subject, "Create Compilation Job Response"]),to_s($response))
+
+  if $response["code"] == 202
+    $job_href = $response["headers"]["Location"]
+  else
+    raise "Error creating compilation job: " + $response["code"]
+  end
+
+  ## Wait for the compilation to complete
+  $job_not_complete = true
+  $response_body = ""
+  while $job_not_complete do
+    sleep(5)
+
+    $response = http_get(
+      url: "https://selfservice-" + $shard + ".rightscale.com" + $job_href,
+      headers: $ss_headers
+    )
+
+    call sys_log(join([$syslog_subject, "Wait for Compliation Job Response"]),to_s($response))
+
+    if $response["code"] == 200
+      $response_body = from_json($response["body"])
+      if $response_body["status"] == "successful"
+        $job_not_complete = false
+      elsif $response_body["status"] == "failed"
+        raise "Compilation job failed!"
+      end
+    else
+      raise "Error retrieving compilation job: " + $response["code"]
+    end
+  end
+
+  ## Once complete, index templates in designer and filter on the one we are updating/creating
+  $compilation_href = $response_body["compilation_result"]["compilation_href"]
+  call sys_log(join([$syslog_subject, "Compliation Href"]),to_s($compilation_href))
+
+  $response = http_get(
+    url: "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates?filter[]=name==" + to_uri($cat_name),
+    headers: $ss_headers
+  )
+
+  call sys_log(join([$syslog_subject, "Index Templates Response"]),to_s($response))
+
+  if $response["code"] == 200
+    $template = from_json($response["body"])
+  else
+    raise "Error retrieving template: " + $response["code"]
+  end
+
+  ## Determine if we are creating or updating the template and do it
+  if empty?($template)
+    # Create
+    $action = "creating"
+    $url = "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates/actions/create_from_compilation"
+  else
+    # Update
+    $action = "updating"
+    $url = "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates/" + $template[0]["id"] + "/actions/update_from_compilation"
+  end
+
+  $response = http_post(
+    url: $url,
+    headers: $ss_headers,
+    body:{
+      "compilation_href": $compilation_href,
+      "filename": $filename
+    }
+  )
+
+  call sys_log(join([$syslog_subject, "Create or Update Template Response"]),to_s($response))
+
+  if $response["code"] == 200 || $response["code"] == 201 || $response["code"] == 204
+    # Nothing to do
+  else
+    raise "Error " + $action + " package: " + $response["code"]
+  end
+
+  $ss_headers_sess = {
+    "Accept": "application/json"
+  }
+  task_label("reauth")
+  $response = http_get(
+    insecure: false,
+    url: "https://selfservice-" + $shard+ ".rightscale.com/api/designer/new_session?account_id="+$account,
+    headers: $ss_headers_sess
+  )
+  call sys_log(join([$syslog_subject, "Line 265 Response"]),to_s($response))
+
+  task_label("Get dependents of the template")
+  $ss_headers = {
+    "X_API_VERSION": "1.0",
+    "X-Api-Version": "1.0",
+    "Location": "https://selfservice-" + $shard + ".rightscale.com/catalog/",
+    "X-Account": to_s($account),
+    "accept": "application/json"
+  }
+
+  $response = http_get(
+    url: "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates?view=expanded&filter[]=name==" + to_uri($cat_name),
+    headers: $ss_headers
+  )
+  call sys_log(join([$syslog_subject, "Expanded Templates Response"]),to_s($response))
+
+
+  if $response["code"] == 200
+    $libtemplates = from_json($response["body"])
+    $template = select($libtemplates, {"package": "azure/subnets"})
+    call sys_log("Template list", to_s($template))
+    if !empty?($template)
+      $dependents = $template[0]["dependents"]
+    else
+      $dependents = []
+    end
+  else
+    raise "Error retrieving template: " + $response["code"]
+  end
+
+  call sys_log(join([$syslog_subject, "Template Dependents"]),to_s($dependents))
+
+  task_label("Default View Templates")
+  $response = http_get(
+    url: "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates",
+    headers: $ss_headers
+  )
+  call sys_log(join([$syslog_subject, "Templates Response"]),to_s($response))
+
+
+  if $response["code"] == 200
+    $templates = from_json($response["body"])
+  else
+    raise "Error retrieving template: " + $response["code"]
+  end
+
+  task_label("For Each Dependent, Recompile and republish templates")
+  foreach $dependent in $dependents do
+    ## Create recompile job
+    $cat = select($templates, {"id": $dependent["template_id"]})
+    $compilation_href = $cat[0]["compilation_href"]
+    $template_href = $cat[0]["href"]
+    $cat_filename = $cat[0]["filename"]
+    $cat_id = $cat[0]["id"]
+    $url = "https://selfservice-" + $shard + ".rightscale.com" + $compilation_href + "/actions/recompile"
+    $response = http_post(
+      url: $url,
+      headers: $ss_headers,
+      body:{
+        "infer_dependencies": true
+      }
+    )
+
+    call sys_log(join([$syslog_subject, "Create Recompile Template Job Response"]),to_s($response))
+
+    if $response["code"] == 202
+      $job_href = $response["headers"]["Location"]
+    else
+      raise "Error recompiling template: " + $response["code"]
+    end
+
+    ## Wait for compilation job to complete
+    $job_not_complete = true
+    $response_body = ""
+    while $job_not_complete do
+      sleep(5)
+
+      $response = http_get(
+        url: "https://selfservice-" + $shard + ".rightscale.com" + $job_href,
+        headers: $ss_headers
+      )
+
+      call sys_log(join([$syslog_subject, "Wait for Recompile Template Job Response"]),to_s($response))
+
+      if $response["code"] == 200
+        $response_body = from_json($response["body"])
+        if $response_body["status"] == "successful"
+          $job_not_complete = false
+        elsif $response_body["status"] == "failed"
+          raise "Compilation job failed!"
+        end
+      else
+        raise "Error retrieving compilation job: " + $response["code"]
+      end
+    end
+
+    task_label("Once complete, updating the template in designer")
+    $compilation_href = $response_body["compilation_result"]["compilation_href"]
+    call sys_log(join([$syslog_subject, "Compliation Href"]),to_s($compilation_href))
+
+    $response = http_post(
+      url: "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates/" + $cat_id + "/actions/update_from_compilation",
+      headers: $ss_headers,
+      body:{
+        "compilation_href": $compilation_href,
+        "filename": $cat_filename
+      }
+    )
+
+    call sys_log(join([$syslog_subject, "Update Template Response"]),to_s($response))
+
+    if $response["code"] == 200 || $response["code"] == 201 || $response["code"] == 204
+      # Nothing to do
+    else
+      raise "Error " + $action + " package: " + $response["code"]
+    end
+
+    task_label("Determine if the template is a published application, and republish if it is")
+    if $cat[0]["timestamps"]["published_at"]
+      # CAT is published, republish it...
+      $response = http_post(
+        url: "https://selfservice-" + $shard + ".rightscale.com/api/designer/collections/" + $account + "/templates/actions/publish",
+        headers: $ss_headers,
+        body:{
+          "id": $cat_id,
+          "overridden_application_href": $cat[0]["application_info"]["href"]
+        }
+      )
+
+      call sys_log(join([$syslog_subject, "Publish Template Response"]),to_s($response))
+
+      if $response["code"] == 204
+        # Nothing to do
+      else
+        raise "Error publishing template: " + $response["code"]
+      end
+    else
+      # Not published, nothing to do!
+    end
+  end
+end
+
+define find_shard_and_account_number() return $shard_number,$account_number do
+  $session = rs_cm.sessions.index(view: "whoami")
+  $account_number = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
+  $account = rs_cm.get(href: "/api/accounts/" + $account_number)
+  $shard_number = last(split(select($account[0]["links"], {"rel":"cluster"})[0]["href"],"/"))
+end
+
+define sys_log($subject, $detail) do
+  if $$debug
+    rs_cm.audit_entries.create(
+      notify: "None",
+      audit_entry: {
+        auditee_href: @@account,
+        summary: $subject,
+        detail: $detail
+      }
+    )
+  end
+end
+
+define start_debugging() do
+  if $$debugging == false || logic_and($$debugging != false, $$debugging != true)
+    initiate_debug_report()
+    $$debugging = true
+  end
+end
+
+define stop_debugging() do
+  if $$debugging == true
+    $debug_report = complete_debug_report()
+    call sys_log.set_task_target(@@deployment)
+    call sys_log.summary("Debug Report")
+    call sys_log.detail($debug_report)
+    $$debugging = false
+  end
+end
