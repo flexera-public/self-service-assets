@@ -9,7 +9,7 @@ name "FlexeraOne Sales Demo"
 rs_ca_ver 20161221
 short_description "FlexeraOne Sales Demo"
 import 'sys_log'
-import "plugin/rs_aws_compute"
+import "plugin/aws_compute"
 
 # Pretty inclusive set of permissions.
 # TODO: group things down into smaller sets perhaps so admin isn't always needed, etc.
@@ -61,7 +61,7 @@ end
 parameter "param_branch" do
   label "Branch Name"
   type "string"
-  default "common-definitions"
+  default "master"
 end
 
 parameter "param_workspace_id" do
@@ -207,12 +207,12 @@ define defn_stop($param_region) do
   $instance_id = $outputs["instance_resource_id"]
   $str = join([$outputs,$instance_id],"-")
   call sys_log.detail($str)
-  call rs_aws_compute.start_debugging()
-  sub on_error: rs_aws_compute.stop_debugging() do
-    @instance = rs_aws_compute.instances.show(instance_id: $instance_id)
+  call aws_compute.start_debugging()
+  sub on_error: aws_compute.stop_debugging() do
+    @instance = aws_compute.instances.show(instance_id: $instance_id)
     @instance.stop()
   end
-  call rs_aws_compute.stop_debugging()
+  call aws_compute.stop_debugging()
 end
 
 define defn_start($param_region) do
@@ -221,12 +221,12 @@ define defn_start($param_region) do
   $instance_id = $outputs["instance_resource_id"]
   $str = join([$outputs,$instance_id],"-")
   call sys_log.detail($str)
-  call rs_aws_compute.start_debugging()
-  sub on_error: rs_aws_compute.stop_debugging() do
-    @instance = rs_aws_compute.instances.show(instance_id: $instance_id)
+  call aws_compute.start_debugging()
+  sub on_error: aws_compute.stop_debugging() do
+    @instance = aws_compute.instances.show(instance_id: $instance_id)
     @instance.start()
   end
-  call rs_aws_compute.stop_debugging()
+  call aws_compute.stop_debugging()
 end
 
 define defn_terminate() return $terminate_response do
@@ -386,15 +386,15 @@ define get_resource_optima_data($headers,$billing_centers,$resource_id,$start_at
   }
   $query["billing_center_ids"] = $billing_centers
   $analysis_response = {}
-  call rs_aws_compute.start_debugging()
-  sub on_error: rs_aws_compute.stop_debugging() do
+  call aws_compute.start_debugging()
+  sub on_error: aws_compute.stop_debugging() do
     $analysis_response = http_post(
       headers: $headers,
       url: "https://optima.rightscale.com/bill-analysis/orgs/78/costs/select",
       body: $query
     )
   end
-  call rs_aws_compute.stop_debugging()
+  call aws_compute.stop_debugging()
   $cost = 0
   $bc_markdown = "[Optima](https://analytics.rightscale.com/)"
   $rows = $analysis_response["body"]["rows"]
